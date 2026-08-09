@@ -57,7 +57,7 @@ final class OptionBuilderTests: XCTestCase {
     func testSelectorPairsVideoWithAACAudio() {
         let options = OptionBuilder.build(from: youtubeLike())
         let fullHD = options.first { $0.height == 1080 && !$0.isAlternative }!
-        XCTAssertEqual(fullHD.plan.selector, "137+140")
+        XCTAssertTrue(fullHD.plan.selector.hasPrefix("137+140"), "получили: \(fullHD.plan.selector)")
         XCTAssertEqual(fullHD.plan.container, "mp4")
         XCTAssertEqual(fullHD.plan.mode, .video)
     }
@@ -120,7 +120,8 @@ final class OptionBuilderTests: XCTestCase {
         ])
         let options = OptionBuilder.build(from: info).filter { $0.group == .video }
         XCTAssertEqual(options.map(\.height), [720, 480])
-        XCTAssertEqual(options.first?.plan.selector, "hls-720", "склеенный формат берём как есть")
+        XCTAssertTrue(options.first?.plan.selector.hasPrefix("hls-720") ?? false,
+                      "склеенный формат берём как есть")
         XCTAssertTrue(options.allSatisfy(\.estimated), "размер считаем по битрейту")
     }
 
@@ -137,7 +138,7 @@ final class OptionBuilderTests: XCTestCase {
         let options = OptionBuilder.build(from: info)
 
         let video = options.first { $0.group == .video }!
-        XCTAssertEqual(video.plan.selector, "137+140", "к видео должна цепляться стереодорожка")
+        XCTAssertTrue(video.plan.selector.hasPrefix("137+140"), "к видео должна цепляться стереодорожка")
         XCTAssertEqual(video.bytes, 300_000_000 + 10_271_496)
 
         let native = options.first { $0.plan.mode == .audioNative }
@@ -152,7 +153,7 @@ final class OptionBuilderTests: XCTestCase {
                       height: 1080, filesize: 300_000_000, tbr: 4_000),
         ])
         let video = OptionBuilder.build(from: info).first { $0.group == .video }
-        XCTAssertEqual(video?.plan.selector, "137+258")
+        XCTAssertTrue(video?.plan.selector.hasPrefix("137+258") ?? false)
     }
 
     func testMP3UsesConcreteAudioTrack() {
@@ -178,8 +179,8 @@ final class OptionBuilderTests: XCTestCase {
 
         let options = OptionBuilder.build(from: info)
         let video = options.first { $0.height == 720 }
-        XCTAssertEqual(video?.plan.selector, "hls-2644+hls-audio-high",
-                       "к видео должна прицепиться звуковая дорожка, иначе файл выйдет немым")
+        XCTAssertTrue(video?.plan.selector.hasPrefix("hls-2644+hls-audio-high") ?? false,
+                      "к видео должна прицепиться звуковая дорожка, иначе файл выйдет немым")
 
         let native = options.first { $0.plan.mode == .audioNative }
         XCTAssertEqual(native?.plan.selector, "hls-audio-high", "из двух дорожек берём «high»")
@@ -210,6 +211,40 @@ final class OptionBuilderTests: XCTestCase {
         let native = OptionBuilder.build(from: info).first { $0.plan.mode == .audioNative }
         XCTAssertEqual(native?.sizeText, "—")
         XCTAssertFalse(native?.hasKnownSize ?? true)
+    }
+
+    /// Без ffmpeg yt-dlp отбрасывает всё, что нужно склеивать, и отвечает
+    /// «Requested format is not available». Предлагать такое нельзя.
+    func testWithoutFfmpegOnlyReadyMadeFilesAreOffered() {
+        var info = MediaInfo(id: "x", title: "Ролик", duration: 600, formats: [
+            RawFormat(format_id: "140", ext: "m4a", vcodec: "none", acodec: "mp4a.40.2",
+                      filesize: 10_000_000, abr: 128),
+            RawFormat(format_id: "137", ext: "mp4", vcodec: "avc1", acodec: "none",
+                      height: 1080, filesize: 300_000_000, tbr: 4_000),
+            RawFormat(format_id: "248", ext: "webm", vcodec: "vp09", acodec: "none",
+                      height: 1080, filesize: 200_000_000, tbr: 2_600),
+            RawFormat(format_id: "18", ext: "mp4", vcodec: "avc1.42001E", acodec: "mp4a.40.2",
+                      height: 360, filesize: 40_000_000, tbr: 600),
+        ])
+        info.thumbnails = [RawThumbnail(url: "https://i/hq.jpg", width: 1280, height: 720)]
+
+        let options = OptionBuilder.build(from: info, canMerge: false)
+        let video = options.filter { $0.group == .video }
+
+        XCTAssertEqual(video.count, 1, "остаётся только готовый файл со звуком")
+        XCTAssertTrue(video.first?.plan.selector.hasPrefix("18") ?? false,
+                      "получили: \(video.first?.plan.selector ?? "—")")
+        XCTAssertFalse(options.contains { $0.plan.mode == .audioMP3 },
+                       "MP3 делает ffmpeg — без него это не вариант")
+        XCTAssertFalse(options.contains(where: \.isAlternative))
+        XCTAssertTrue(options.contains { $0.group == .cover }, "обложка не зависит от ffmpeg")
+    }
+
+    func testSelectorCarriesFallbackChain() {
+        let options = OptionBuilder.build(from: youtubeLike())
+        let fullHD = options.first { $0.height == 1080 && !$0.isAlternative }!
+        XCTAssertEqual(fullHD.plan.selector, "137+140/best[height<=1080]/best",
+                       "если площадка отдаст другой набор форматов, должен быть запасной путь")
     }
 
     func testEmptyFormatsProduceNoVideoOptions() {

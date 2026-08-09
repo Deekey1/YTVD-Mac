@@ -33,6 +33,16 @@ public struct RootView: View {
                     Hairline()
                 }
 
+                // Без ffmpeg доступны только готовые файлы со звуком — предупреждаем сразу,
+                // а не после неудачной попытки скачать.
+                if model.toolchain.isReady, let missing = model.missingTool {
+                    WarningStrip(message: missing.message, action: "Скопировать команду") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(missing.command, forType: .string)
+                    }
+                    Hairline()
+                }
+
                 if let error = model.errorText {
                     ErrorStrip(message: error,
                                // Варианты уже есть — повторяем саму загрузку, а не разбор.
@@ -266,6 +276,37 @@ private struct SourcesStrip: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
         .background(Theme.bg)
+    }
+}
+
+/// Предупреждение: работать можно, но с оговорками.
+private struct WarningStrip: View {
+    let message: String
+    let action: String
+    let onAction: () -> Void
+
+    @State private var copied = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            IconView(.warningTriangle, size: 14).foregroundStyle(Theme.orange)
+            Text(message)
+                .font(.system(size: 11.5))
+                .foregroundStyle(Theme.text)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            MiniButton(title: copied ? "Скопировано" : action) {
+                onAction()
+                withAnimation { copied = true }
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_800_000_000)
+                    withAnimation { copied = false }
+                }
+            }
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .background(Theme.orange.opacity(0.18))
     }
 }
 

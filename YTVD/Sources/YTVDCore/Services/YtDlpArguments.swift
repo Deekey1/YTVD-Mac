@@ -56,9 +56,12 @@ public enum YtDlpArguments {
         switch plan.mode {
         case .video:
             args += ["-f", plan.selector]
-            args += ["--merge-output-format", plan.container]
-            // Итог всегда должен открываться в QuickTime, если это mp4.
-            if plan.container == "mp4" { args += ["--remux-video", "mp4"] }
+            // Склейка и перепаковка — работа ffmpeg; без него эти флаги только помешают.
+            if ffmpegDirectory != nil {
+                args += ["--merge-output-format", plan.container]
+                // Итог всегда должен открываться в QuickTime, если это mp4.
+                if plan.container == "mp4" { args += ["--remux-video", "mp4"] }
+            }
 
         case .audioNative:
             args += ["-f", plan.selector]

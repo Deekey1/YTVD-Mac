@@ -131,6 +131,19 @@ public final class AppModel: ObservableObject {
         options.first { $0.group == .cover }
     }
 
+    /// Чего не хватает в системе. Предупреждаем заранее, а не после неудачной попытки.
+    public var missingTool: (message: String, command: String)? {
+        if !toolchain.canSolveYouTube {
+            return ("Не найден Deno. Без него YouTube не отдаёт форматы — остальные "
+                    + "площадки работают.", "brew install deno")
+        }
+        if !toolchain.canMerge {
+            return ("Не найден ffmpeg: доступны только готовые файлы со звуком, "
+                    + "без выбора качества и без MP3.", "brew install ffmpeg")
+        }
+        return nil
+    }
+
     /// Сколько всего весит выбранное.
     public var selectionBytes: Int64 {
         (selectedOption?.bytes ?? 0) + (coverSelected ? (coverOption?.bytes ?? 0) : 0)
@@ -278,7 +291,7 @@ public final class AppModel: ObservableObject {
                 // Скачивать нужно по той ссылке, которая сработала: у Vimeo это
                 // может быть страница плеера, а не та, что вставил пользователь.
                 self.currentURL = resolved.url
-                let built = OptionBuilder.build(from: info)
+                let built = OptionBuilder.build(from: info, canMerge: self.toolchain.canMerge)
                 guard !built.isEmpty else {
                     throw YTVDError.tool("У этой ссылки нет доступных для скачивания форматов")
                 }

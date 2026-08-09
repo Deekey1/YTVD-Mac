@@ -90,7 +90,8 @@ public enum YtDlpOutput {
     /// Площадку передаём, чтобы подсказка была по делу: Rutube и VK ждут российский IP,
     /// а Vimeo и YouTube наоборот блокируют адреса дата-центров, которыми пользуется VPN.
     public static func humanError(_ raw: String, source: MediaSource = .other,
-                                  viaVPN: Bool = false, hasCookies: Bool = false) -> String {
+                                  viaVPN: Bool = false, hasCookies: Bool = false,
+                                  canMerge: Bool = true, hasJSRuntime: Bool = true) -> String {
         let text = cleanError(raw)
         let lowered = text.lowercased()
         let vpnNote = viaVPN ? " Сейчас трафик идёт через VPN." : ""
@@ -160,7 +161,17 @@ public enum YtDlpOutput {
         }
         if lowered.contains("unsupported url") { return "Эта ссылка не поддерживается" }
         if lowered.contains("is not a valid url") { return "Ссылка выглядит неправильно" }
-        if lowered.contains("requested format is not available") { return "Такого формата у ролика нет" }
+        // YouTube требует решить задачу на JavaScript. Без исполнителя JS список форматов
+        // приходит пустым — остаются одни раскадровки, и yt-dlp говорит «формат недоступен».
+        if lowered.contains("n challenge solving failed")
+            || lowered.contains("only images are available")
+            || (lowered.contains("requested format is not available") && !hasJSRuntime) {
+            return "YouTube не отдал ни одного формата: не найден исполнитель JavaScript, "
+                 + "без него площадку не открыть. Установите его командой: brew install deno"
+        }
+        if lowered.contains("requested format is not available") {
+            return "Такого формата у ролика нет — попробуйте другое качество"
+        }
         if lowered.contains("live event will begin") || lowered.contains("premieres in") {
             return "Трансляция ещё не началась"
         }

@@ -55,24 +55,34 @@ public enum BinaryLocator {
 public struct Toolchain: Sendable, Equatable {
     public var ytdlp: URL?
     public var ffmpeg: URL?
+    /// Исполнитель JavaScript. YouTube требует решать задачку на JS, и без него
+    /// отдаёт вместо форматов одни раскадровки.
+    public var jsRuntime: URL?
     public var ytdlpVersion: String?
     public var ffmpegVersion: String?
 
-    public init(ytdlp: URL? = nil, ffmpeg: URL? = nil,
+    /// Порядок важен: yt-dlp умеет работать с этими, deno — основной.
+    public static let jsRuntimeNames = ["deno", "bun", "qjs"]
+
+    public init(ytdlp: URL? = nil, ffmpeg: URL? = nil, jsRuntime: URL? = nil,
                 ytdlpVersion: String? = nil, ffmpegVersion: String? = nil) {
-        self.ytdlp = ytdlp; self.ffmpeg = ffmpeg
+        self.ytdlp = ytdlp; self.ffmpeg = ffmpeg; self.jsRuntime = jsRuntime
         self.ytdlpVersion = ytdlpVersion; self.ffmpegVersion = ffmpegVersion
     }
 
     public var isReady: Bool { ytdlp != nil }
 
-    /// Без ffmpeg нельзя склеивать дорожки и делать MP3 — но 720p одним файлом скачается.
+    /// Без ffmpeg нельзя склеивать дорожки и делать MP3 — но готовый файл скачается.
     public var canMerge: Bool { ffmpeg != nil }
+
+    /// Без исполнителя JS YouTube не отдаёт ни одного формата.
+    public var canSolveYouTube: Bool { jsRuntime != nil }
 
     public var summary: String {
         var parts: [String] = []
         parts.append(ytdlpVersion.map { "yt-dlp \($0)" } ?? "yt-dlp не найден")
         parts.append(ffmpegVersion.map { "ffmpeg \($0)" } ?? "ffmpeg не найден")
+        parts.append(jsRuntime.map { $0.lastPathComponent } ?? "deno не найден")
         return parts.joined(separator: " · ")
     }
 
@@ -80,6 +90,7 @@ public struct Toolchain: Sendable, Equatable {
         var chain = Toolchain()
         chain.ytdlp = BinaryLocator.find("yt-dlp")
         chain.ffmpeg = BinaryLocator.find("ffmpeg")
+        chain.jsRuntime = jsRuntimeNames.lazy.compactMap { BinaryLocator.find($0) }.first
 
         if let ytdlp = chain.ytdlp,
            let out = try? await ProcessRunner.run(ytdlp, ["--version"]).stdout {

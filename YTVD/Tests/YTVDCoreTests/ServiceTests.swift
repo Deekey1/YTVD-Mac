@@ -43,14 +43,14 @@ final class ToolchainTests: XCTestCase {
         let empty = Toolchain()
         XCTAssertFalse(empty.isReady)
         XCTAssertFalse(empty.canMerge)
-        XCTAssertEqual(empty.summary, "yt-dlp не найден · ffmpeg не найден")
+        XCTAssertEqual(empty.summary, "yt-dlp не найден · ffmpeg не найден · deno не найден")
 
         let full = Toolchain(ytdlp: URL(fileURLWithPath: "/x/yt-dlp"),
                              ffmpeg: URL(fileURLWithPath: "/x/ffmpeg"),
                              ytdlpVersion: "2025.04.30", ffmpegVersion: "7.1.1")
         XCTAssertTrue(full.isReady)
         XCTAssertTrue(full.canMerge)
-        XCTAssertEqual(full.summary, "yt-dlp 2025.04.30 · ffmpeg 7.1.1")
+        XCTAssertEqual(full.summary, "yt-dlp 2025.04.30 · ffmpeg 7.1.1 · deno не найден")
     }
 }
 
@@ -187,5 +187,39 @@ final class ProcessRunnerTests: XCTestCase {
         handle?.terminate()
         let status = try await task.value
         XCTAssertNotEqual(status, 0, "прерванный процесс не должен возвращать успех")
+    }
+}
+
+/// YouTube решает задачу на JavaScript: без исполнителя список форматов приходит пустым.
+final class JSRuntimeTests: XCTestCase {
+
+    func testToolchainReportsMissingRuntime() {
+        let chain = Toolchain(ytdlp: URL(fileURLWithPath: "/x/yt-dlp"),
+                              ffmpeg: URL(fileURLWithPath: "/x/ffmpeg"))
+        XCTAssertFalse(chain.canSolveYouTube)
+        XCTAssertTrue(chain.summary.contains("deno не найден"))
+
+        let full = Toolchain(ytdlp: URL(fileURLWithPath: "/x/yt-dlp"),
+                             ffmpeg: URL(fileURLWithPath: "/x/ffmpeg"),
+                             jsRuntime: URL(fileURLWithPath: "/x/deno"))
+        XCTAssertTrue(full.canSolveYouTube)
+        XCTAssertTrue(full.summary.contains("deno"))
+    }
+
+    func testEmptyFormatListIsBlamedOnRuntimeNotOnQuality() {
+        let raw = "ERROR: Requested format is not available"
+        let withoutJS = YtDlpOutput.humanError(raw, source: .youtube, hasJSRuntime: false)
+        XCTAssertTrue(withoutJS.contains("brew install deno"), "получили: \(withoutJS)")
+
+        let withJS = YtDlpOutput.humanError(raw, source: .youtube, hasJSRuntime: true)
+        XCTAssertTrue(withJS.contains("другое качество"), "получили: \(withJS)")
+    }
+
+    func testChallengeWarningIsRecognisedDirectly() {
+        for raw in ["n challenge solving failed: Some formats may be missing",
+                    "Only images are available for download"] {
+            XCTAssertTrue(YtDlpOutput.humanError(raw, source: .youtube).contains("deno"),
+                          "не распознано: \(raw)")
+        }
     }
 }

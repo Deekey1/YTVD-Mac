@@ -14,7 +14,9 @@ public enum OptionBuilder {
     private static let maxAlternatives = 4
     private static let mp3Bitrate: Double = 320
 
-    public static func build(from info: MediaInfo) -> [DownloadOption] {
+    /// - Parameter canMerge: найден ли ffmpeg. Без него нельзя ни склеить дорожки,
+    ///   ни сделать MP3 — такие варианты предлагать нечестно, yt-dlp просто откажет.
+    public static func build(from info: MediaInfo, canMerge: Bool = true) -> [DownloadOption] {
         let formats = info.formats ?? []
         let duration = info.duration
 
@@ -37,7 +39,10 @@ public enum OptionBuilder {
         var result: [DownloadOption] = []
 
         // ── видео H.264 ───────────────────────────────────────────────────────
-        let avcByHeight = bestPerHeight(videoOnly.filter { $0.videoFamily == .avc })
+        // Раздельные дорожки годятся, только если есть чем их склеить.
+        let avcByHeight = canMerge
+            ? bestPerHeight(videoOnly.filter { $0.videoFamily == .avc })
+            : [:]
         var mainSizes: [Int: Int64] = [:]
 
         for (height, format) in avcByHeight.sorted(by: { $0.key > $1.key }) {
@@ -62,7 +67,9 @@ public enum OptionBuilder {
         }
 
         // ── видео VP9 / AV1: только когда заметно легче ───────────────────────
-        let altFormats = videoOnly.filter { $0.videoFamily == .vp9 || $0.videoFamily == .av1 }
+        let altFormats = canMerge
+            ? videoOnly.filter { $0.videoFamily == .vp9 || $0.videoFamily == .av1 }
+            : []
         var alternatives: [DownloadOption] = []
         for (height, format) in bestPerHeight(altFormats).sorted(by: { $0.key > $1.key }) {
             let (videoBytes, estimated) = format.bytes(duration: duration)
@@ -78,7 +85,8 @@ public enum OptionBuilder {
         result.append(contentsOf: alternatives.prefix(maxAlternatives))
 
         // ── звук ──────────────────────────────────────────────────────────────
-        if let duration, duration > 0 {
+        // MP3 получается перекодированием, а его делает ffmpeg.
+        if canMerge, let duration, duration > 0 {
             let mp3Bytes = Int64(mp3Bitrate * 1000 / 8 * duration)
             result.append(DownloadOption(
                 id: "audio-mp3", group: .audio, tint: .red,
@@ -152,11 +160,14 @@ public enum OptionBuilder {
                                     container: String, duration: Double?,
                                     savingVersus: Int64? = nil) -> DownloadOption {
         let id = format.format_id ?? "v\(height)"
+        // Запасной вариант в конце цепочки: площадка может отдать другой набор форматов,
+        // чем при разборе. `best` — это готовый файл со звуком, он есть почти всегда.
+        let fallback = "/best[height<=\(height)]/best"
         let selector: String
         if let audioID = audio?.format_id, !format.hasAudio {
-            selector = "\(id)+\(audioID)"
+            selector = "\(id)+\(audioID)" + fallback
         } else {
-            selector = id
+            selector = id + fallback
         }
 
         let family = format.videoFamily

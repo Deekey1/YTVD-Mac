@@ -30,6 +30,7 @@ enum YTVDApp {
                 let chain = await Toolchain.discover()
                 print("yt-dlp: \(chain.ytdlp?.path ?? "не найден")  версия: \(chain.ytdlpVersion ?? "—")")
                 print("ffmpeg: \(chain.ffmpeg?.path ?? "не найден")  версия: \(chain.ffmpegVersion ?? "—")")
+                print("js:     \(chain.jsRuntime?.path ?? "не найден — YouTube без него не работает")")
                 print("готово к работе: \(chain.isReady ? "да" : "нет")  склейка дорожек: \(chain.canMerge ? "да" : "нет")")
                 semaphore.signal()
             }

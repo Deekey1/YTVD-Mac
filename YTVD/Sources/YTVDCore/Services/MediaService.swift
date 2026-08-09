@@ -50,7 +50,9 @@ public final class MediaService: @unchecked Sendable {
             failure?.raw ?? "",
             source: MediaSource.detect(url),
             viaVPN: NetworkEnvironment.isUsingVPN,
-            hasCookies: network.cookiesFromBrowser != nil))
+            hasCookies: network.cookiesFromBrowser != nil,
+            canMerge: toolchain.canMerge,
+                hasJSRuntime: toolchain.canSolveYouTube))
     }
 
     /// Сырая неудача запуска: текст от yt-dlp нужен целиком, чтобы решить, пробовать ли дальше.
@@ -165,7 +167,9 @@ public final class MediaService: @unchecked Sendable {
                 lastError,
                 source: MediaSource.detect(url),
                 viaVPN: NetworkEnvironment.isUsingVPN,
-                hasCookies: network.cookiesFromBrowser != nil))
+                hasCookies: network.cookiesFromBrowser != nil,
+                canMerge: toolchain.canMerge,
+                hasJSRuntime: toolchain.canSolveYouTube))
         }
 
         let file = Self.resolveOutput(destinations: destinations, directory: directory,
