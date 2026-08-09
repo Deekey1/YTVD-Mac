@@ -60,14 +60,44 @@ brew install yt-dlp ffmpeg
 cd YTVD && ./scripts/make-app.sh --install
 ```
 
-Готовое приложение — `YTVD/dist/YTVD.app`, универсальный бинарник (Apple Silicon и Intel).
-Подпись ad-hoc: на своей машине запустится, для раздачи другим понадобится Developer ID.
+Готовое приложение — `YTVD/dist/YTVD.app`, универсальный бинарник (Apple Silicon и Intel),
+требуется macOS 14 или новее.
 
 Проверить, что движок найден:
 
 ```bash
 /Applications/YTVD.app/Contents/MacOS/YTVD --doctor
 ```
+
+### Установка на другой Mac
+
+Приложение подписано ad-hoc, без Developer ID, поэтому **скопированный** файл macOS
+запускать откажется. Надёжнее собрать на месте — у собранного локально приложения
+карантина нет и Gatekeeper к нему не придирается.
+
+Полного Xcode не нужно, хватит Command Line Tools: `swift`, `iconutil` и `codesign`
+входят в них.
+
+```bash
+xcode-select --install          # если инструментов ещё нет
+brew install yt-dlp ffmpeg
+git clone https://github.com/Deekey1/YTVD-Mac.git
+cd YTVD-Mac/YTVD && ./scripts/make-app.sh --install
+```
+
+Если всё же переносите готовый `YTVD.app` (AirDrop, флешка, облако), снимите карантин —
+иначе будет «не удаётся открыть, разработчик не может быть проверен»:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/YTVD.app
+```
+
+Либо один раз запустите приложение, получите отказ и разрешите его в
+«Системные настройки → Конфиденциальность и безопасность → Открыть всё равно».
+На macOS 15 и новее нажатие правой кнопкой с выбором «Открыть» уже не помогает.
+
+Чтобы приложение открывалось у кого угодно без этих плясок, нужна платная учётная
+запись Apple Developer: подпись Developer ID и нотаризация.
 
 ## Когда площадка не пускает
 

@@ -63,5 +63,8 @@ if [[ "${1:-}" == "--install" ]]; then
   echo "▸ Копирую в /Applications"
   rm -rf "/Applications/YTVD.app"
   cp -R "$APP" "/Applications/YTVD.app"
+  # Если исходники приехали архивом из интернета, на файлах висит карантин —
+  # без этого macOS откажется запускать приложение.
+  xattr -dr com.apple.quarantine "/Applications/YTVD.app" 2>/dev/null || true
   echo "✓ /Applications/YTVD.app"
 fi
