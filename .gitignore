@@ -1,0 +1,15 @@
+# Сборка Swift
+.build/
+dist/
+*.dSYM/
+
+# Xcode
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# macOS
+.DS_Store
+
+# Локальные настройки инструментов
+.claude/settings.local.json

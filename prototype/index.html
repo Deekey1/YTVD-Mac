@@ -1,0 +1,941 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YTVD — прототип интерфейса</title>
+<style>
+/* ───────────────────────── токены ───────────────────────── */
+:root{
+  --blue:#3b8fd1; --orange:#e08b34; --red:#d74b3c; --steel:#6d7a86; --green:#4f9d5d;
+
+  --bg:#242424; --bg2:#2c2c2c; --bg3:#333333; --lane:#1f1f1f;
+  --sep:#151515; --hair:rgba(255,255,255,.07);
+  --txt:#eaeaea; --dim:#9a9a9a; --mut:#6e6e6e;
+  --chrome:#1c1c1c;
+  --shadow:0 26px 70px rgba(0,0,0,.62), 0 3px 10px rgba(0,0,0,.5);
+  --focus:rgba(255,255,255,.9);
+  --page:#3a3d42;
+  --r:5px;
+}
+.light{
+  --bg:#ececed; --bg2:#e2e2e3; --bg3:#d8d8d9; --lane:#dcdcdd;
+  --sep:#c2c2c4; --hair:rgba(0,0,0,.09);
+  --txt:#1b1b1c; --dim:#5f5f62; --mut:#8b8b8f;
+  --chrome:#dcdcde;
+  --shadow:0 26px 70px rgba(0,0,0,.28), 0 3px 10px rgba(0,0,0,.14);
+  --focus:rgba(0,0,0,.72);
+  --page:#b9bcc2;
+}
+
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  font:13px/1.35 -apple-system, "SF Pro Text", system-ui, "Helvetica Neue", sans-serif;
+  font-feature-settings:"tnum" 1, "cv08" 1;
+  color:var(--txt);
+  background:
+    radial-gradient(1100px 620px at 22% 8%, #4b5058 0%, transparent 62%),
+    radial-gradient(900px 700px at 88% 92%, #33363b 0%, transparent 58%),
+    var(--page);
+  -webkit-font-smoothing:antialiased;
+  padding:22px 22px 60px;
+}
+.grain-src{position:fixed; width:0; height:0}
+
+/* зерно — как на референсе */
+.grain::after{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  background-image:var(--noise); background-size:110px 110px;
+  mix-blend-mode:overlay; opacity:.14;
+}
+.blk.grain::after{opacity:.3}
+
+/* ───────────────────────── страница ───────────────────────── */
+.bar{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  max-width:1180px; margin:0 auto 20px;
+}
+.bar .sp{flex:1}
+.chip{
+  display:inline-flex; align-items:center; gap:6px;
+  height:28px; padding:0 11px; border-radius:6px; cursor:pointer;
+  background:rgba(255,255,255,.08); color:#e9e9ea; border:1px solid rgba(255,255,255,.1);
+  font-size:12px; letter-spacing:.01em; transition:background .14s, transform .1s;
+  backdrop-filter:blur(8px);
+}
+.chip:hover{background:rgba(255,255,255,.15)}
+.chip:active{transform:translateY(1px)}
+.chip.on{background:#f2f2f3; color:#1b1b1c; border-color:transparent; font-weight:600}
+.chip svg{width:14px; height:14px}
+.bar .lbl{font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:rgba(255,255,255,.5); margin-right:2px}
+
+.split{max-width:1180px; margin:0 auto; display:grid; grid-template-columns:auto 1fr; gap:38px; align-items:start}
+@media (max-width:1000px){ .split{grid-template-columns:1fr; gap:26px} }
+
+/* ───────────────────────── окно-виджет ───────────────────────── */
+.widget{
+  --hcol:150px;
+  width:400px; border-radius:13px; background:var(--bg); color:var(--txt);
+  box-shadow:var(--shadow), 0 0 0 1px rgba(0,0,0,.55), inset 0 0 0 1px var(--hair);
+  overflow:hidden; position:relative; user-select:none;
+  transition:background .2s;
+}
+
+/* заголовок окна */
+.tbar{
+  height:34px; display:flex; align-items:center; gap:8px; padding:0 8px 0 11px;
+  background:var(--chrome); border-bottom:1px solid var(--sep); cursor:grab;
+}
+.tbar:active{cursor:grabbing}
+.mark{display:flex; align-items:center; gap:7px; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--dim); font-weight:600}
+.mark i{width:9px; height:9px; border-radius:2px; background:var(--red); box-shadow:inset 0 0 0 1px rgba(0,0,0,.35); display:block}
+.tbar .sp{flex:1}
+.ib{
+  width:24px; height:24px; border-radius:5px; display:grid; place-items:center;
+  color:var(--mut); cursor:pointer; border:none; background:transparent; transition:.13s;
+}
+.ib:hover{background:var(--bg3); color:var(--txt)}
+.ib.on{background:var(--blue); color:#fff}
+.ib svg{width:15px; height:15px}
+
+/* поле ссылки */
+.url{
+  display:flex; align-items:center; gap:8px; height:42px; padding:0 10px;
+  border-bottom:1px solid var(--sep); background:var(--bg2);
+}
+.url > svg{width:15px; height:15px; color:var(--mut); flex:none}
+.url input{
+  flex:1; background:transparent; border:none; outline:none; color:var(--txt);
+  font:13px/1 inherit; letter-spacing:.005em;
+}
+.url input::placeholder{color:var(--mut)}
+.kbd{
+  font-size:10px; color:var(--mut); border:1px solid var(--hair); border-radius:4px;
+  padding:2px 5px; letter-spacing:.04em; background:var(--bg); white-space:nowrap;
+}
+.spin{width:14px; height:14px; border-radius:50%; border:2px solid var(--hair); border-top-color:var(--blue); animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* подсказка «в буфере ссылка» */
+.clip{
+  display:none; align-items:center; gap:8px; padding:7px 10px;
+  background:linear-gradient(180deg, rgba(59,143,209,.20), rgba(59,143,209,.12));
+  border-bottom:1px solid var(--sep); font-size:12px; color:var(--txt);
+  animation:drop .22s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes drop{from{opacity:0; transform:translateY(-6px)} to{opacity:1; transform:none}}
+.clip svg{width:14px; height:14px; color:var(--blue); flex:none}
+.clip b{font-weight:500; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1}
+
+/* поддерживаемые площадки (пустое состояние) */
+.srcs{
+  display:none; gap:13px; padding:9px 11px; background:var(--bg); border-bottom:1px solid var(--sep);
+  font-size:11px; color:var(--mut);
+}
+.srcs span{display:flex; align-items:center; gap:5px}
+.srcs i{width:9px; height:9px; border-radius:2px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+
+/* карточка превью: компактная по умолчанию, разворачивается на всю ширину */
+.card{
+  display:grid; grid-template-columns:150px 1fr; gap:10px; padding:9px 11px;
+  background:var(--bg2); border-bottom:1px solid var(--sep); align-items:start;
+}
+.card.big{display:block; padding:0}
+.prev{position:relative; aspect-ratio:16/9; background:var(--lane); overflow:hidden; border-radius:5px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+.card.big .prev{border-radius:0; box-shadow:none; border-bottom:1px solid var(--sep)}
+.thumb{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(90% 120% at 20% 15%, #5d6f8a 0%, transparent 60%),
+    radial-gradient(80% 100% at 85% 80%, #7a4f43 0%, transparent 55%),
+    linear-gradient(150deg, #3d4551, #24282e 60%, #191c20);
+}
+.thumb .film{
+  position:absolute; inset:0; display:grid; place-items:center; color:rgba(255,255,255,.16);
+}
+.thumb .film svg{width:52px; height:52px}
+.tag{
+  position:absolute; display:inline-flex; align-items:center; gap:5px; height:20px; padding:0 7px;
+  border-radius:4px; font-size:10.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+  color:#fff; box-shadow:inset 0 0 0 1px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.35);
+}
+.tag.src{left:5px; top:5px; background:var(--red); height:16px; font-size:9px; padding:0 5px}
+.card.big .tag.src{left:8px; top:8px; height:20px; font-size:10.5px; padding:0 7px}
+.tag.dur{right:5px; bottom:5px; background:rgba(15,15,15,.85); letter-spacing:.02em; font-variant-numeric:tabular-nums; height:16px; font-size:9.5px; padding:0 4px}
+.card.big .tag.dur{right:8px; bottom:8px; height:20px; font-size:10.5px; padding:0 7px}
+
+/* кнопки поверх обложки */
+.ovl{position:absolute; left:5px; bottom:5px; display:flex; gap:4px; opacity:0; transform:translateY(3px); transition:.16s}
+.prev:hover .ovl, .prev:focus-within .ovl{opacity:1; transform:none}
+.ovl button{
+  height:20px; min-width:20px; padding:0 5px; border-radius:4px; border:none; cursor:pointer;
+  background:rgba(15,15,15,.86); color:#fff; display:inline-flex; align-items:center; gap:4px;
+  font:9.5px/1 inherit; font-weight:600; letter-spacing:.04em;
+}
+.ovl button:hover{background:var(--steel)}
+.ovl button.saved{background:var(--green)}
+.ovl svg{width:12px; height:12px}
+
+/* мета */
+.meta{min-width:0}
+.card.big .meta{padding:9px 11px 10px}
+.meta h1{
+  font-size:12.5px; font-weight:600; line-height:1.32; letter-spacing:-.005em;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.card.big .meta h1{-webkit-line-clamp:2; font-size:13px}
+.meta p{
+  margin-top:4px; font-size:11px; color:var(--dim); display:flex; gap:5px; align-items:center;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.meta p i{width:3px; height:3px; border-radius:50%; background:var(--mut); display:block; flex:none}
+.meta p span{overflow:hidden; text-overflow:ellipsis}
+.meta .sk{height:9px; border-radius:3px; margin-bottom:5px}
+
+/* линейка масштаба */
+.ruler{
+  display:grid; grid-template-columns:var(--hcol) 1fr; height:22px; align-items:center;
+  border-bottom:1px solid var(--sep); background:var(--bg);
+}
+.ruler .h{
+  padding-left:11px; font-size:9.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--mut);
+  border-right:1px solid var(--sep); height:100%; display:flex; align-items:center;
+}
+.ruler .l{position:relative; height:100%; padding:0 10px 0 5px}
+.ruler .t{position:absolute; top:0; bottom:0; border-left:1px dashed var(--hair)}
+.ruler .t span{position:absolute; left:4px; top:5px; font-size:9.5px; color:var(--mut); white-space:nowrap}
+
+/* ───────────── список дорожек ───────────── */
+.tracks{background:var(--bg)}
+.grp{
+  display:grid; grid-template-columns:var(--hcol) 1fr; height:22px; align-items:center;
+  background:var(--bg2); border-bottom:1px solid var(--sep); cursor:pointer;
+}
+.grp .h{
+  display:flex; align-items:center; gap:5px; padding-left:7px; height:100%;
+  font-size:9.5px; text-transform:uppercase; letter-spacing:.11em; color:var(--dim); font-weight:600;
+  border-right:1px solid var(--sep);
+}
+.grp .h svg{width:11px; height:11px; color:var(--mut); transition:transform .16s}
+.grp[data-open="0"] .h svg.cv{transform:rotate(-90deg)}
+.grp .n{padding-right:10px; text-align:right; font-size:9.5px; color:var(--mut); letter-spacing:.04em}
+
+.row{
+  display:grid; grid-template-columns:var(--hcol) 1fr; min-height:28px;
+  border-bottom:1px solid var(--sep); cursor:pointer; position:relative;
+  background:var(--bg);
+}
+.row:hover{background:var(--bg2)}
+.row.sel{background:var(--bg3)}
+.row .h{
+  display:flex; align-items:center; gap:6px; padding:0 8px 0 7px; height:28px;
+  border-right:1px solid var(--sep); overflow:hidden;
+}
+.cv{width:11px; height:11px; color:var(--mut); flex:none; transition:transform .16s; border-radius:2px}
+.row[data-open="1"] .cv{transform:rotate(90deg)}
+.cv:hover{color:var(--txt)}
+.sw{width:11px; height:11px; border-radius:2.5px; flex:none; box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+.row .name{font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.row .name em{font-style:normal; color:var(--mut); font-weight:400; font-size:11px; margin-left:4px}
+.lane{position:relative; height:28px; display:flex; align-items:center; padding:0 10px 0 5px; overflow:hidden}
+
+/* строка «показать ещё» */
+.more{
+  display:grid; grid-template-columns:var(--hcol) 1fr; height:22px; align-items:center;
+  border-bottom:1px solid var(--sep); cursor:pointer; background:var(--bg);
+}
+.more:hover{background:var(--bg2)}
+.more .h{border-right:1px solid var(--sep); height:100%}
+.more .v{
+  display:flex; align-items:center; gap:5px; padding-left:5px; font-size:10.5px; color:var(--mut);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.more:hover .v{color:var(--dim)}
+.more svg{width:11px; height:11px}
+
+/* блок-плашка */
+.blk{
+  position:relative; height:20px; border-radius:var(--r); flex:none;
+  display:flex; align-items:center; justify-content:flex-end; gap:5px; padding:0 7px;
+  white-space:nowrap; overflow:hidden;
+  font-size:10.5px; font-weight:600; color:rgba(255,255,255,.96); letter-spacing:.01em;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 42%, rgba(0,0,0,.16));
+  background-color:var(--c);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.28);
+  transition:filter .14s, box-shadow .14s, width .35s cubic-bezier(.3,.9,.3,1);
+  text-shadow:0 1px 1px rgba(0,0,0,.28);
+}
+.row:hover .blk{filter:brightness(1.13)}
+.row.sel .blk{box-shadow:inset 0 0 0 1px rgba(0,0,0,.34), 0 0 0 2px var(--focus), 0 1px 3px rgba(0,0,0,.4)}
+.blk .ck{width:12px; height:12px; margin-right:auto; opacity:0; transition:.12s; flex:none}
+.row.sel .blk .ck{opacity:1}
+.lane .out{
+  display:flex; align-items:center; gap:5px; margin-left:7px;
+  font-size:10.5px; color:var(--dim); white-space:nowrap; font-weight:500;
+}
+.pill{
+  height:14px; padding:0 5px; border-radius:3px; font-size:9px; font-weight:700; letter-spacing:.06em;
+  display:inline-flex; align-items:center; flex:none;
+  background:rgba(0,0,0,.26); color:rgba(255,255,255,.92);
+}
+.out .pill{background:var(--bg3); color:var(--mut)}
+
+/* раскрытые детали */
+.det{
+  grid-column:1 / -1; display:none; padding:7px 11px 9px 25px; background:var(--lane);
+  border-top:1px solid var(--sep); font-size:11px; color:var(--dim); line-height:1.5;
+}
+.row[data-open="1"] .det{display:block; animation:drop .18s ease}
+.det code{font:10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--txt); background:var(--bg3); padding:2px 4px; border-radius:3px}
+.det .note{display:flex; align-items:center; gap:5px; margin-top:5px; color:var(--mut)}
+.det .note svg{width:12px; height:12px; flex:none}
+
+/* скелет анализа */
+.sk{height:20px; border-radius:var(--r); background:var(--bg3); animation:pulse 1.15s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.45} 50%{opacity:.95}}
+
+/* строка прогресса */
+.prog{
+  position:relative; height:20px; flex:1; border-radius:var(--r); overflow:hidden;
+  background:var(--lane); box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);
+}
+.prog .fill{
+  position:absolute; inset:0 auto 0 0; width:0%; border-radius:var(--r);
+  background:linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,0) 45%, rgba(0,0,0,.18));
+  background-color:var(--c); transition:width .3s linear;
+}
+.prog .fill::before{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(100deg, transparent 25%, rgba(255,255,255,.22) 50%, transparent 75%);
+  background-size:220% 100%; animation:sheen 1.5s linear infinite;
+}
+@keyframes sheen{to{background-position:-220% 0}}
+.prog .pct{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:flex-end;
+  padding-right:7px; font-size:10.5px; font-weight:700; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.5);
+}
+.stat{
+  display:grid; grid-template-columns:var(--hcol) 1fr; border-bottom:1px solid var(--sep); background:var(--bg);
+}
+.stat .h{
+  border-right:1px solid var(--sep); padding:0 8px 6px 25px; font-size:10.5px; color:var(--mut);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.stat .v{
+  padding:0 10px 6px 5px; font-size:10.5px; color:var(--dim); display:flex; gap:5px; align-items:center;
+  font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden;
+}
+.stat .v i{width:3px; height:3px; border-radius:50%; background:var(--mut); display:block}
+
+/* очередь / состояния */
+.strip{
+  display:flex; align-items:center; gap:8px; padding:8px 11px; font-size:11.5px; color:var(--dim);
+  border-bottom:1px solid var(--sep); background:var(--bg2);
+}
+.strip svg{width:14px; height:14px; flex:none}
+.strip.err{background:linear-gradient(180deg, rgba(215,75,60,.22), rgba(215,75,60,.12)); color:var(--txt)}
+.strip.err svg{color:var(--red)}
+.strip.ok{background:linear-gradient(180deg, rgba(79,157,93,.22), rgba(79,157,93,.12)); color:var(--txt)}
+.strip.ok svg{color:var(--green)}
+.strip .sp{flex:1}
+.mini{
+  height:22px; padding:0 9px; border-radius:5px; border:1px solid var(--hair); background:var(--bg3);
+  color:var(--txt); font:11px/1 inherit; cursor:pointer; display:inline-flex; align-items:center; gap:5px;
+}
+.mini:hover{background:var(--bg2); border-color:var(--dim)}
+.mini svg{width:12px; height:12px}
+
+/* подвал */
+.foot{padding:9px 10px 10px; background:var(--bg2); border-top:1px solid var(--sep)}
+.dest{
+  display:flex; align-items:center; gap:6px; height:34px; padding:0 8px; flex:none; width:104px;
+  border-radius:6px; background:var(--bg); border:1px solid var(--hair); cursor:pointer;
+  font-size:11.5px; color:var(--dim);
+}
+.dest:hover{border-color:var(--mut); color:var(--txt)}
+.dest svg{width:13px; height:13px; flex:none}
+.dest .p{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dest .cvr{width:11px; height:11px; color:var(--mut)}
+
+.go{
+  width:100%; height:34px; border:none; border-radius:6px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  font:13px/1 inherit; font-weight:600; color:#fff; letter-spacing:.01em;
+  background:linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 45%, rgba(0,0,0,.18));
+  background-color:var(--blue);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.32), 0 1px 3px rgba(0,0,0,.34);
+  transition:filter .13s, transform .08s;
+  position:relative;
+}
+.go:hover{filter:brightness(1.1)}
+.go:active{transform:translateY(1px)}
+.go svg{width:15px; height:15px}
+.go.ghost{background-color:var(--bg3); color:var(--txt); box-shadow:inset 0 0 0 1px var(--hair)}
+.go[disabled]{opacity:.4; cursor:default; filter:none}
+.gorow{display:flex; gap:8px; align-items:center}
+.gorow .go{flex:1; min-width:0; padding:0 8px}
+.gorow .go span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+/* панели настроек/истории */
+.panel{
+  position:absolute; inset:34px 0 0 0; background:var(--bg); z-index:5;
+  display:flex; flex-direction:column;
+  transform:translateY(101%); transition:transform .26s cubic-bezier(.2,.9,.25,1);
+}
+.panel.open{transform:none}
+.phead{
+  display:flex; align-items:center; gap:8px; height:30px; padding:0 8px 0 11px;
+  border-bottom:1px solid var(--sep); background:var(--bg2);
+  font-size:9.5px; text-transform:uppercase; letter-spacing:.11em; color:var(--dim); font-weight:600;
+}
+.phead .sp{flex:1}
+.pbody{overflow:auto; flex:1}
+.pfoot{
+  display:flex; align-items:center; gap:8px; padding:8px 10px; margin-top:auto;
+  border-top:1px solid var(--sep); background:var(--bg2); font-size:10.5px; color:var(--mut);
+}
+.pfoot .sp{flex:1}
+.set{
+  display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;
+  padding:8px 11px; border-bottom:1px solid var(--sep); font-size:12px;
+}
+.set small{display:block; color:var(--mut); font-size:10.5px; margin-top:2px}
+.seg{display:flex; border-radius:5px; overflow:hidden; box-shadow:inset 0 0 0 1px var(--hair)}
+.seg button{
+  border:none; background:var(--bg2); color:var(--dim); font:11px/1 inherit; cursor:pointer;
+  padding:5px 8px; border-right:1px solid var(--sep);
+}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--blue); color:#fff; font-weight:600}
+.tg{
+  width:34px; height:19px; border-radius:4px; background:var(--bg3); cursor:pointer; position:relative;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35); transition:background .16s;
+}
+.tg::after{
+  content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:3px;
+  background:#c8c8c9; box-shadow:0 1px 2px rgba(0,0,0,.4); transition:transform .16s, background .16s;
+}
+.tg.on{background:var(--blue)}
+.tg.on::after{transform:translateX(15px); background:#fff}
+.fld{
+  height:24px; border-radius:5px; background:var(--bg); border:1px solid var(--hair); color:var(--txt);
+  font:11.5px/1 inherit; padding:0 7px; outline:none; width:150px;
+}
+.fld:focus{border-color:var(--blue)}
+
+.hrow{display:grid; grid-template-columns:44px 1fr auto; gap:9px; align-items:center; padding:7px 11px; border-bottom:1px solid var(--sep); cursor:pointer}
+.hrow:hover{background:var(--bg2)}
+.hrow .t{width:44px; height:26px; border-radius:3px; background:linear-gradient(140deg,#4a5462,#22262b); box-shadow:inset 0 0 0 1px rgba(0,0,0,.4); position:relative; overflow:hidden}
+.hrow .nm{font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.hrow .nm small{display:block; color:var(--mut); font-size:10px; margin-top:1px}
+.hrow .z{font-size:10.5px; color:var(--mut); font-variant-numeric:tabular-nums}
+
+/* подсказки клавиш */
+.hint{display:flex; gap:10px; padding:6px 11px; background:var(--chrome); border-top:1px solid var(--sep); font-size:10px; color:var(--mut)}
+.hint b{font-weight:600; color:var(--dim)}
+
+/* ───────────────────────── заметки справа ───────────────────────── */
+.notes{color:#e8e9ea; max-width:520px; padding-top:2px}
+.notes h2{font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:rgba(255,255,255,.55); margin:0 0 12px}
+.notes h3{font-size:13.5px; margin:20px 0 7px; color:#fff}
+.notes h3:first-of-type{margin-top:0}
+.notes ul{list-style:none; display:flex; flex-direction:column; gap:7px}
+.notes li{display:flex; gap:9px; font-size:12.5px; line-height:1.5; color:rgba(255,255,255,.8)}
+.notes li b{color:#fff; font-weight:600}
+.notes li::before{content:""; width:9px; height:9px; border-radius:2px; background:var(--blue); flex:none; margin-top:5px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+.notes li.o::before{background:var(--orange)} .notes li.r::before{background:var(--red)} .notes li.s::before{background:var(--steel)}
+.legend{display:flex; gap:14px; flex-wrap:wrap; margin:10px 0 0}
+.legend span{display:flex; align-items:center; gap:6px; font-size:11.5px; color:rgba(255,255,255,.75)}
+.legend i{width:11px; height:11px; border-radius:2.5px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+</style>
+
+<svg class="grain-src"><filter id="nz"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter></svg>
+
+<div class="bar">
+  <span class="lbl">Сценарий</span>
+  <button class="chip" data-go="idle">Пусто</button>
+  <button class="chip" data-go="clipboard">Ссылка в буфере</button>
+  <button class="chip" data-go="analyzing">Анализ</button>
+  <button class="chip on" data-go="ready">Варианты</button>
+  <button class="chip" data-go="downloading">Загрузка</button>
+  <button class="chip" data-go="done">Готово</button>
+  <button class="chip" data-go="error">Ошибка</button>
+  <span class="sp"></span>
+  <button class="chip" id="play">▶︎ Проиграть весь путь</button>
+  <button class="chip" id="theme">Светлая тема</button>
+</div>
+
+<div class="split">
+  <div class="stage">
+    <div class="widget grain" id="w" data-state="ready">
+
+      <!-- ── титул ── -->
+      <div class="tbar">
+        <span class="mark"><i></i>YTVD</span>
+        <span class="sp"></span>
+        <button class="ib on" id="bPin" title="Поверх всех окон"></button>
+        <button class="ib" id="bHist" title="История ⌘Y"></button>
+        <button class="ib" id="bSet" title="Настройки ⌘,"></button>
+        <button class="ib" id="bClose" title="Скрыть ⎋"></button>
+      </div>
+
+      <!-- ── ссылка ── -->
+      <div class="url">
+        <span id="uIcon"></span>
+        <input id="input" placeholder="Вставьте ссылку — анализ начнётся сам" spellcheck="false">
+        <span class="kbd" id="uRight">⌘V</span>
+      </div>
+
+      <div class="clip" id="clipStrip">
+        <span id="clipIcon"></span>
+        <b>В буфере: youtu.be/aqz-KE-bpKQ</b>
+        <button class="mini" id="clipBtn">Вставить</button>
+      </div>
+
+      <div class="srcs" id="srcs">
+        <span><i style="background:#d74b3c"></i>YouTube</span>
+        <span><i style="background:#3b8fd1"></i>Vimeo</span>
+        <span><i style="background:#8b6cc7"></i>Rutube</span>
+        <span><i style="background:#4a7fd4"></i>VK Видео</span>
+      </div>
+
+      <!-- ── превью + мета ── -->
+      <div class="card" id="card">
+        <div class="prev" id="prev">
+          <div class="thumb grain"><div class="film" id="filmIcon"></div></div>
+          <span class="tag src" id="srcTag">YouTube</span>
+          <span class="tag dur">10:32</span>
+          <div class="ovl">
+            <button id="jpgBtn" title="Сохранить обложку в JPEG"></button>
+            <button id="bigBtn" title="Крупное превью"></button>
+          </div>
+        </div>
+        <div class="meta" id="metaBox">
+          <h1 id="mTitle">Big Buck Bunny — открытый анимационный фильм студии Blender</h1>
+          <p><span id="mChan">Blender Foundation</span><i></i><span>4,2 млн</span><i></i><span>2 года назад</span></p>
+        </div>
+      </div>
+
+      <!-- ── линейка + дорожки ── -->
+      <div class="ruler" id="ruler">
+        <div class="h">Размер</div>
+        <div class="l" id="rulerLane"></div>
+      </div>
+
+      <div class="tracks" id="tracks"></div>
+
+      <div class="strip err" id="errStrip" style="display:none">
+        <span id="errIcon"></span>
+        <span><b>Видео недоступно</b> — ролик заблокирован в вашем регионе.</span>
+        <span class="sp"></span>
+        <button class="mini" data-go="analyzing">Повторить</button>
+      </div>
+
+      <!-- ── подвал ── -->
+      <div class="foot" id="foot">
+        <div class="gorow">
+          <div class="dest" id="dest" title="~/Movies/YTVD — сменить папку">
+            <span id="destIcon"></span>
+            <span class="p">YTVD</span>
+            <span class="cvr" id="destCvr"></span>
+          </div>
+          <div class="gorow" id="goRow" style="flex:1"></div>
+        </div>
+      </div>
+
+      <div class="hint" id="hintBar">
+        <span><b>⌘V</b> вставить</span><span><b>↑↓</b> выбрать</span><span><b>⏎</b> скачать</span><span><b>⌘,</b> настройки</span><span><b>⎋</b> скрыть</span>
+      </div>
+
+      <!-- ── настройки ── -->
+      <div class="panel" id="pSet">
+        <div class="phead"><span>Настройки</span><span class="sp"></span><button class="ib" data-close="pSet" id="setClose"></button></div>
+        <div class="pbody">
+          <div class="set"><div>Папка сохранения<small>Movies / YTVD</small></div><button class="mini" id="pickIcon">Обзор…</button></div>
+          <div class="set"><div>Качество по умолчанию</div>
+            <div class="seg" data-seg="q"><button>720p</button><button class="on">1080p</button><button>2K</button><button>4K</button><button>Макс.</button></div>
+          </div>
+          <div class="set"><div>Всегда H.264 + AAC<small>Совместимо с Telegram, QuickTime, iPhone</small></div><div class="tg on" data-tg></div></div>
+          <div class="set"><div>Анализировать ссылку из буфера<small>Как только она там появится</small></div><div class="tg on" data-tg></div></div>
+          <div class="set"><div>Скачивать сразу после анализа<small>Без подтверждения, в качестве по умолчанию</small></div><div class="tg" data-tg></div></div>
+          <div class="set"><div>Сохранять обложку рядом<small>{имя}.jpg</small></div><div class="tg" data-tg></div></div>
+          <div class="set"><div>Поверх всех окон</div><div class="tg on" data-tg></div></div>
+          <div class="set"><div>Запускать при входе в систему</div><div class="tg" data-tg></div></div>
+          <div class="set"><div>Шаблон имени файла</div><input class="fld" value="{title} [{quality}]"></div>
+          <div class="set"><div>Ограничить размер файла<small>Подберёт качество под лимит</small></div><input class="fld" style="width:74px" value="50 МБ"></div>
+          <div class="set"><div>Движок<small>yt-dlp 2025.04.30 · ffmpeg 7.1.1</small></div><button class="mini">Обновить</button></div>
+        </div>
+        <div class="pfoot"><span>YTVD 1.0 · Apple Silicon</span><span class="sp"></span>
+          <button class="mini">Сбросить настройки</button></div>
+      </div>
+
+      <!-- ── история ── -->
+      <div class="panel" id="pHist">
+        <div class="phead"><span>История</span><span class="sp"></span><button class="ib" data-close="pHist" id="histClose"></button></div>
+        <div class="pbody" id="histBody"></div>
+        <div class="pfoot"><span>8 файлов · 2,4 ГБ</span><span class="sp"></span>
+          <button class="mini">Открыть папку</button><button class="mini">Очистить</button></div>
+      </div>
+
+    </div>
+  </div>
+
+  <aside class="notes">
+    <h2>Что предлагаю</h2>
+
+    <h3>Главная идея: варианты как дорожки таймлайна</h3>
+    <ul>
+      <li><b>Длина плашки = вес файла.</b> Видно за полсекунды, чем 4K отличается от 1080p — без чтения цифр. Шкала корневая (√), чтобы мелкие файлы не схлопывались в точку; сверху линейка с делениями.</li>
+      <li><b>Цвет = что получишь.</b> Один взгляд — и понятно, где видео, где звук, где картинка.</li>
+      <li><b>Чеврон раскрывает детали</b> — кодек, битрейт, к/с, itag. Новичку не мешает, опытному всё доступно.</li>
+    </ul>
+    <div class="legend">
+      <span><i style="background:#3b8fd1"></i>Видео + звук (MP4/H.264)</span>
+      <span><i style="background:#e08b34"></i>Экономный кодек (VP9/AV1)</span>
+      <span><i style="background:#d74b3c"></i>Только звук</span>
+      <span><i style="background:#6d7a86"></i>Обложка JPEG</span>
+    </div>
+
+    <h3>Путь в один жест</h3>
+    <ul>
+      <li class="o"><b>Скопировал ссылку — виджет уже знает.</b> Появляется полоска «В буфере…», клик или ⌘V — и пошёл анализ. В настройках можно включить полный автомат: вставилось → скачалось.</li>
+      <li class="o"><b>Обложка скачивается отдельно</b> — кнопка прямо на превью или строкой в списке, JPEG в исходном разрешении.</li>
+      <li class="o"><b>Клавиатура целиком:</b> ⌘V, ↑↓, ⏎, ⌘, , ⎋. Мышь не обязательна.</li>
+    </ul>
+
+    <h3>Как виджет</h3>
+    <ul>
+      <li class="r"><b>Окно без системной рамки</b>, 400 px, скруглённое, тащится за любую точку шапки, живёт поверх окон (переключатель в шапке).</li>
+      <li class="r"><b>Иконка в меню-баре</b> и глобальный хоткей (⌥⌘D) — показать/спрятать. Плюс запуск при входе в систему.</li>
+      <li class="r"><b>Очередь.</b> Вставили вторую ссылку во время загрузки — она встаёт в очередь отдельной группой, ничего не прерывается.</li>
+    </ul>
+
+    <h3>Технически</h3>
+    <ul>
+      <li class="s"><b>Нативный SwiftUI</b> под Apple Silicon: запуск ~0,2 с, в памяти ~40 МБ. Никакого Electron.</li>
+      <li class="s"><b>yt-dlp + ffmpeg внутри бандла</b> — YouTube, Vimeo, Rutube, VK Видео. Кнопка обновления движка, чтобы площадки не ломали загрузку.</li>
+      <li class="s"><b>Тёмная и светлая</b> следом за системой (переключатель сверху — посмотреть обе).</li>
+    </ul>
+  </aside>
+</div>
+
+<script>
+const ICONS = {"Link":"<path d=\"M14 7H16C18.8 7 21 9.2 21 12C21 14.8 18.8 17 16 17H14\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M10 17H8C5.2 17 3 14.8 3 12C3 9.2 5.2 7 8 7H10\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 12H16\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","LinkAlt":"<path d=\"M17.2 6C17.7 6 18.2 6.1 18.7 6.3C19.2 6.5 19.6 6.8 20 7.2C20.4 7.6 20.7 8 20.9 8.5C21.1 9 21.2 9.5 21.2 10C21.2 10.5 21.1 11 20.9 11.5C20.7 12 20.4 12.4 20 12.8L19 13.9L17.9 15L16.9 16L15.8 17.1C15.4 17.5 15 17.8 14.5 18C14 18.2 13.5 18.3 13 18.3C12.5 18.3 12 18.2 11.5 18C11 17.8 10.6 17.5 10.2 17.1C9.8 16.7 9.5 16.3 9.3 15.8C9.1 15.3 9 14.8 9 14.2C9 13.7 9.1 13.2 9.3 12.7C9.5 12.2 9.8 11.8 10.2 11.4L11.3 10.3\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M7 18.9C6.5 18.9 6 18.8 5.5 18.6C5 18.4 4.6 18.1 4.2 17.7C3.8 17.3 3.5 16.9 3.3 16.4C3.1 15.9 3 15.4 3 14.9C3 14.4 3.1 13.9 3.3 13.4C3.5 12.9 3.8 12.5 4.2 12.1L5.2 11L6.3 9.9L7.4 8.8L8.5 7.7C8.9 7.3 9.3 7 9.8 6.8C10.3 6.6 10.8 6.5 11.3 6.5C11.8 6.5 12.3 6.6 12.8 6.8C13.3 7 13.7 7.3 14.1 7.7C14.5 8.1 14.8 8.5 15 9C15.2 9.5 15.3 10 15.3 10.5C15.3 11 15.2 11.5 15 12C14.8 12.5 14.5 12.9 14.1 13.3L13 14.5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","ClipboardCheck":"<path d=\"M9 13.5L11 15.5L15 11.5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 4H6C5.44772 4 5 4.44772 5 5V20C5 20.5523 5.44772 21 6 21H18C18.5523 21 19 20.5523 19 20V5C19 4.44772 18.5523 4 18 4H16\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\"/><path d=\"M9 5V3C9 2.44772 9.44772 2 10 2H14C14.5523 2 15 2.44772 15 3V5C15 5.55228 14.5523 6 14 6H10C9.44772 6 9 5.55228 9 5Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\"/>","ClipboardEmpty":"<path d=\"M8 4H6C5.44772 4 5 4.44772 5 5V20C5 20.5523 5.44772 21 6 21H18C18.5523 21 19 20.5523 19 20V5C19 4.44772 18.5523 4 18 4H16\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\"/><path d=\"M9 5V3C9 2.44772 9.44772 2 10 2H14C14.5523 2 15 2.44772 15 3V5C15 5.55228 14.5523 6 14 6H10C9.44772 6 9 5.55228 9 5Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\"/>","Download":"<path d=\"M12 16V3\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M16 12L12 16L8 12\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M5 18V20C5 20.5523 5.44772 21 6 21H18C18.5523 21 19 20.5523 19 20V18\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Video":"<path d=\"M19 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H19C19.5523 20 20 19.5523 20 19V5C20 4.44772 19.5523 4 19 4Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19 4H5C4.44772 4 4 4.44772 4 5V11C4 11.5523 4.44772 12 5 12H19C19.5523 12 20 11.5523 20 11V5C20 4.44772 19.5523 4 19 4Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H8V4Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 4H5C4.44772 4 4 4.44772 4 5V7C4 7.55228 4.44772 8 5 8H8V4Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 8H4V12H8V8Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 12H4V16H8V12Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19 4H16V20H19C19.5523 20 20 19.5523 20 19V5C20 4.44772 19.5523 4 19 4Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19 4H16V7C16 7.55228 16.4477 8 17 8H20V5C20 4.44772 19.5523 4 19 4Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M20 8H16V12H20V8Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M20 12H16V16H20V12Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","VideoCamera":"<path d=\"M20.4672 8.15137L15.079 12.0001L20.4672 15.8489V8.15137Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M13.5395 6.61169H5.07222C4.22197 6.61169 3.53271 7.30095 3.53271 8.1512V15.8487C3.53271 16.699 4.22197 17.3882 5.07222 17.3882H13.5395C14.3897 17.3882 15.079 16.699 15.079 15.8487V8.1512C15.079 7.30095 14.3897 6.61169 13.5395 6.61169Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","MusicalNoteSingle":"<path d=\"M12 4V18\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19 7.674V7.017C19 6.14779 18.7168 5.30223 18.1934 4.6083C17.67 3.91436 16.9348 3.40981 16.099 3.171L13.275 2.364C13.1261 2.32141 12.9694 2.31398 12.8171 2.3423C12.6649 2.37062 12.5213 2.4339 12.3977 2.52717C12.2741 2.62044 12.1738 2.74114 12.1048 2.87976C12.0358 3.01839 11.9999 3.17114 12 3.326V7L17.725 8.63599C17.8739 8.67858 18.0306 8.68601 18.1829 8.65769C18.3351 8.62937 18.4787 8.56609 18.6023 8.47282C18.7259 8.37955 18.8262 8.25885 18.8952 8.12023C18.9642 7.9816 19.0001 7.82885 19 7.674Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 18C12 18.7956 11.6839 19.5587 11.1213 20.1213C10.5587 20.6839 9.79565 21 9 21C8.20435 21 7.44129 20.6839 6.87868 20.1213C6.31607 19.5587 6 18.7956 6 18C6 16.343 7.343 16 9 16C10.657 16 12 16.343 12 18Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","MusicalNoteDouble":"<path d=\"M8 18V5.71605C7.99994 5.23826 8.17094 4.77623 8.48203 4.4136C8.79312 4.05096 9.22376 3.81167 9.696 3.73905L18.696 2.35405C18.981 2.31022 19.2721 2.32854 19.5494 2.40775C19.8267 2.48697 20.0836 2.62521 20.3024 2.813C20.5212 3.00078 20.6969 3.23367 20.8173 3.49569C20.9377 3.75772 21 4.04268 21 4.33105V16\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 9L21 7\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 18C8 18.7956 7.68393 19.5587 7.12132 20.1213C6.55871 20.6839 5.79565 21 5 21C4.20435 21 3.44129 20.6839 2.87868 20.1213C2.31607 19.5587 2 18.7956 2 18C2 16.343 3.343 16 5 16C6.657 16 8 16.343 8 18Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M21 16C21 16.7956 20.6839 17.5587 20.1213 18.1213C19.5587 18.6839 18.7956 19 18 19C17.2044 19 16.4413 18.6839 15.8787 18.1213C15.3161 17.5587 15 16.7956 15 16C15 14.343 16.343 14 18 14C19.657 14 21 14.343 21 16Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Headphones":"<path d=\"M20.0614 16.7897L19.8026 17.7556C19.3738 19.356 17.7288 20.3057 16.1284 19.8769L15.1624 19.6181L16.9742 12.8566L17.9401 13.1154C19.5405 13.5443 20.4902 15.1893 20.0614 16.7897ZM20.0614 16.7897C20.0614 16.7897 21.1667 15.0002 21 12.0002C20.8334 9.00017 18.9 3.00017 12.5 3.00017L11.4585 3.00017C5.05848 3.00017 3.12515 9.00017 2.95848 12.0002C2.79182 15.0002 3.89712 16.7897 3.89712 16.7897M3.89712 16.7897L4.15594 17.7556C4.58476 19.356 6.22977 20.3057 7.83017 19.8769L8.7961 19.6181L6.98436 12.8566L6.01844 13.1154C4.41804 13.5443 3.46829 15.1893 3.89712 16.7897Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Image":"<path d=\"M4 5C4 4.44772 4.44772 4 5 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19V5Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4 15L9 11L14 15L16 13L20 17\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M16.0671 8.14514H16.0791\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\"/>","ImageAlt":"<path d=\"M4 5C4 4.44772 4.44772 4 5 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19V5Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M13.4 14.6667L8.4 10L6 12.8V17C6 17.5523 6.44772 18 7 18H17C17.5523 18 18 17.5523 18 17V14.6667L16.8 12.3333L13.4 14.6667Z\" fill=\"currentColor\"/><path d=\"M16.0671 8.14514H16.0791\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\"/>","Folder":"<path d=\"M3.00002 6C3.00002 5.44772 3.44773 5 4.00002 5H9.00002L11 7H20C20.5523 7 21 7.44772 21 8V18C21 18.5523 20.5523 19 20 19H4.00002C3.44773 19 3.00002 18.5523 3.00002 18V6Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","FolderDownload":"<path d=\"M3 6C3 5.44772 3.44772 5 4 5H9L11 7H20C20.5523 7 21 7.44772 21 8V18C21 18.5523 20.5523 19 20 19H4C3.44772 19 3 18.5523 3 18V6Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M14 13.5L12 15.5M12 15.5L10 13.5M12 15.5L12 10.5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","ChevronRight":"<path d=\"M10 6L16 12L10 18\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","ChevronDown":"<path d=\"M18 10L12 16L6 10\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","ChevronUp":"<path d=\"M6 14L12 8L18 14\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Check":"<path d=\"M4 12L9.33333 18L20 6\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","CheckDouble":"<path d=\"M20 8L12 18L11.0773 16.9733\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4 11L8 16L16 6\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Play":"<path d=\"M7 6.74104C7 5.96925 7.83721 5.48838 8.50387 5.87726L17.5192 11.1362C18.1807 11.5221 18.1807 12.4779 17.5192 12.8638L8.50387 18.1227C7.83721 18.5116 7 18.0308 7 17.259V6.74104Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","PlayFill":"<path d=\"M9.00774 5.01349C7.67443 4.23573 6 5.19747 6 6.74105V17.259C6 18.8026 7.67443 19.7643 9.00774 18.9865L18.0231 13.7276C19.3461 12.9558 19.3461 11.0442 18.0231 10.2725L9.00774 5.01349Z\" fill=\"currentColor\"/>","Pause":"<path d=\"M9 7V17\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M15 7V17\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Close":"<path d=\"M18.0001 6L6.00012 18\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M6.00012 6L18.0001 18\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","ExternalLink":"<path d=\"M20 4L8.99998 15\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M14 4L20 4L20 10\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M18 14V19C18 19.5523 17.5523 20 17 20H4.99999C4.44771 20 3.99999 19.5523 3.99999 19V7C3.99999 6.44772 4.44771 6 4.99999 6H9.99999\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","WarningTriangle":"<path d=\"M11.8737 13.5L11.8737 9.97894\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M10.8118 4.41764C11.2617 3.56283 12.4857 3.56283 12.9356 4.41764L20.4216 18.6411C20.8422 19.4402 20.2627 20.4 19.3597 20.4H4.38764C3.48462 20.4 2.90516 19.4402 3.32574 18.6411L10.8118 4.41764Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M11.8736 16.6105H11.8825\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\"/>","Sparkles":"<path d=\"M11.7845 10.0777L12 9L12.2155 10.0777C12.6906 12.4528 14.5472 14.3094 16.9223 14.7845L18 15L16.9223 15.2155C14.5472 15.6906 12.6906 17.5472 12.2155 19.9223L12 21L11.7845 19.9223C11.3094 17.5472 9.45284 15.6906 7.07768 15.2155L6 15L7.07768 14.7845C9.45285 14.3094 11.3094 12.4528 11.7845 10.0777Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M5.89223 3.53884L6 3L6.10777 3.53884C6.34528 4.72642 7.27358 5.65472 8.46116 5.89223L9 6L8.46116 6.10777C7.27358 6.34528 6.34528 7.27358 6.10777 8.46116L6 9L5.89223 8.46116C5.65472 7.27358 4.72642 6.34528 3.53884 6.10777L3 6L3.53884 5.89223C4.72642 5.65472 5.65472 4.72642 5.89223 3.53884Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M17.9282 4.35923L18 4L18.0718 4.35923C18.2302 5.15095 18.8491 5.76981 19.6408 5.92815L20 6L19.6408 6.07185C18.8491 6.23019 18.2302 6.84905 18.0718 7.64077L18 8L17.9282 7.64077C17.7698 6.84905 17.1509 6.23019 16.3592 6.07185L16 6L16.3592 5.92815C17.1509 5.76981 17.7698 5.15095 17.9282 4.35923Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Bolt":"<path d=\"M13.9098 3.5H8.37202C8.15121 3.5 7.95655 3.64483 7.8931 3.85633L5.1931 12.8563C5.09686 13.1771 5.33708 13.5 5.67202 13.5H9.35961C9.6849 13.5 9.92358 13.8057 9.84468 14.1213L8.47794 19.5882C8.35216 20.0914 8.98114 20.4297 9.33159 20.0474L18.232 10.3379C18.5259 10.0172 18.2984 9.5 17.8634 9.5H14.0902C13.7813 9.5 13.5462 9.22257 13.597 8.9178L14.403 4.0822C14.4538 3.77743 14.2187 3.5 13.9098 3.5Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"2.16568\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Search":"<path d=\"M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M21 21L15 15\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Settings":"<path d=\"M10.287 4.13982C10.719 2.33897 13.2809 2.33897 13.713 4.13982C13.9923 5.3038 15.3262 5.85632 16.3467 5.23073C17.9256 4.26286 19.7372 6.07439 18.7693 7.65331C18.1437 8.67383 18.6962 10.0077 19.8602 10.287C21.661 10.7191 21.661 13.281 19.8602 13.713C18.6962 13.9923 18.1437 15.3262 18.7693 16.3467C19.7372 17.9256 17.9256 19.7372 16.3467 18.7693C15.3262 18.1437 13.9923 18.6962 13.713 19.8602C13.2809 21.6611 10.719 21.6611 10.287 19.8602C10.0077 18.6962 8.67382 18.1437 7.65329 18.7693C6.07438 19.7372 4.26284 17.9256 5.23072 16.3467C5.8563 15.3262 5.30378 13.9923 4.13981 13.713C2.33896 13.281 2.33896 10.7191 4.13981 10.287C5.30378 10.0077 5.8563 8.67384 5.23072 7.65331C4.26284 6.07439 6.07438 4.26286 7.65329 5.23073C8.67382 5.85632 10.0077 5.3038 10.287 4.13982Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/><path d=\"M15 12C15 12.7956 14.6839 13.5587 14.1213 14.1213C13.5587 14.6839 12.7956 15 12 15C11.2044 15 10.4413 14.6839 9.87868 14.1213C9.31607 13.5587 9 12.7956 9 12C9 11.2044 9.31607 10.4413 9.87868 9.87868C10.4413 9.31607 11.2044 9 12 9C12.7956 9 13.5587 9.31607 14.1213 9.87868C14.6839 10.4413 15 11.2044 15 12V12Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","History":"<path d=\"M12 7.19995L12 12.0999C12 12.3761 12.2239 12.5999 12.5 12.5999L16.8 12.5999\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\"/><path d=\"M3 12C3 7.02944 7.02944 3 12 3\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-dasharray=\"1 4\"/><path d=\"M3 12C3 16.9706 7.02944 21 12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/>","Clock3":"<path d=\"M12 7.19995L12 12.0999C12 12.3761 12.2239 12.5999 12.5 12.5999L16.8 12.5999\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\"/><circle cx=\"12\" cy=\"12\" r=\"9\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/>","Pin":"<path d=\"M17.8094 15C17.8094 15 17.8094 13 16.1496 11L16.1497 3H7.8504L7.85034 11C6.19049 13 6.19049 15 6.19049 15H17.8094Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 15V21\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M7 3H17\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","PinAlt":"<path d=\"M5 10.726L2 11.231L11.23 2L10.726 5M12 16.881L11.23 18.923L18.923 11.231L16.881 12M15.077 15.077L21 21M3.538 9.692L9.692 3.538L9.928 3.879C12.0722 6.97606 14.5453 9.83201 17.304 12.397L17.539 12.615L12.615 17.538L12.397 17.304C9.83233 14.5454 6.97671 12.0723 3.88 9.928L3.54 9.692H3.538Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Delete":"<path d=\"M5 7L5.93366 20.0712C5.97104 20.5946 6.40648 21 6.93112 21H17.0689C17.5935 21 18.029 20.5946 18.0663 20.0712L19 7\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M3 7H21\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 6V4C8 3.44772 8.44772 3 9 3H15C15.5523 3 16 3.44772 16 4V6\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M10 11V17\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M14 11V17\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Copy":"<path d=\"M8 10C8 8.89543 8.89543 8 10 8H19C20.1046 8 21 8.89543 21 10V19C21 20.1046 20.1046 21 19 21H10C8.89543 21 8 20.1046 8 19V10Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/><path d=\"M5.00037 16C4.46993 16 3.96123 15.7893 3.58615 15.4142C3.21108 15.0391 3.00037 14.5304 3.00037 14V5C3.00037 4.46957 3.21108 3.96086 3.58615 3.58579C3.96123 3.21071 4.46993 3 5.00037 3H14.0004C14.5308 3 15.0395 3.21071 15.4146 3.58579C15.7897 3.96086 16.0004 4.46957 16.0004 5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Minimize":"<path d=\"M8.00011 3V6C8.00011 6.53043 7.7894 7.03914 7.41432 7.41421C7.03925 7.78929 6.53054 8 6.00011 8H3.00011M21.0001 8H18.0001C17.4697 8 16.961 7.78929 16.5859 7.41421C16.2108 7.03914 16.0001 6.53043 16.0001 6V3M16.0001 21V18C16.0001 17.4696 16.2108 16.9609 16.5859 16.5858C16.961 16.2107 17.4697 16 18.0001 16H21.0001M3.00011 16H6.00011C6.53054 16 7.03925 16.2107 7.41432 16.5858C7.7894 16.9609 8.00011 17.4696 8.00011 18V21\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Expand":"<path d=\"M21 3L15 9\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M17 3L21 3L21 7\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M3 21L9 15\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M7 21L3 21L3 17\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Sliders":"<path d=\"M4.00012 21V14\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4.00012 10V3\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12.0001 21V12\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12.0001 8V3\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M20.0004 21V16\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M20.0004 12V3\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M1.00012 14H7.00012\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M9.00012 8H15.0001\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M17.0004 16H23.0004\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Filters":"<circle cx=\"15.5\" cy=\"15\" r=\"5.5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/><circle cx=\"12\" cy=\"9.5\" r=\"5.5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/><circle cx=\"8.5\" cy=\"15\" r=\"5.5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/>","Layers":"<path d=\"M12 3L21 8L12 13L3 8L12 3Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M21 12L12 17L3 12\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M21 16L12 21L3 16\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Grid":"<path d=\"M19 4H15C14.4477 4 14 4.44772 14 5V9C14 9.55228 14.4477 10 15 10H19C19.5523 10 20 9.55228 20 9V5C20 4.44772 19.5523 4 19 4Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19 14H15C14.4477 14 14 14.4477 14 15V19C14 19.5523 14.4477 20 15 20H19C19.5523 20 20 19.5523 20 19V15C20 14.4477 19.5523 14 19 14Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M9 4H5C4.44772 4 4 4.44772 4 5V9C4 9.55228 4.44772 10 5 10H9C9.55228 10 10 9.55228 10 9V5C10 4.44772 9.55228 4 9 4Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M9 14H5C4.44772 14 4 14.4477 4 15V19C4 19.5523 4.44772 20 5 20H9C9.55228 20 10 19.5523 10 19V15C10 14.4477 9.55228 14 9 14Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Eye":"<path d=\"M3 12C7 4 17 4 21 12C17 20 7 20 3 12Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z\" fill=\"currentColor\"/>","ArrowRight":"<path d=\"M19 12L5 12\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M13 6L19 12L13 18\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","ArrowDown":"<path d=\"M12 19L12 5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M18 13L12 19L6 13\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Add":"<path d=\"M12 5V19\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19 12H5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Menu":"<path d=\"M19 12H5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19 7H5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19 17H5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Tv":"<path d=\"M19.9999 3H3.99988C2.89531 3 1.99988 3.89543 1.99988 5V15C1.99988 16.1046 2.89531 17 3.99988 17H19.9999C21.1044 17 21.9999 16.1046 21.9999 15V5C21.9999 3.89543 21.1044 3 19.9999 3Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4.99988 21H18.9999\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","FilmSlate":"<path d=\"M3.75 10.5H20.25V18.75C20.25 18.9489 20.171 19.1397 20.0303 19.2803C19.8897 19.421 19.6989 19.5 19.5 19.5H4.5C4.30109 19.5 4.11032 19.421 3.96967 19.2803C3.82902 19.1397 3.75 18.9489 3.75 18.75V10.5Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M3.79032 10.5L19.5 6.35344L18.735 3.54094C18.6822 3.3532 18.5575 3.19385 18.388 3.09749C18.2184 3.00113 18.0177 2.97553 17.8294 3.02626L3.54844 6.79407C3.45511 6.81784 3.36743 6.8599 3.29048 6.91782C3.21353 6.97574 3.14885 7.04836 3.10019 7.13148C3.05152 7.21459 3.01985 7.30653 3.00699 7.40198C2.99414 7.49743 3.00037 7.59448 3.02532 7.68751L3.79032 10.5Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M6.34778 6.0553L10.8281 8.6428\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M11.8697 4.59845L16.35 7.18501\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Crop":"<path d=\"M21 17H8C7.44772 17 7 16.5523 7 16V3\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M17 21V8C17 7.44772 16.5523 7 16 7H3\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","AspectRatio":"<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M9.5 17L7 17C6.44772 17 6 16.5523 6 16L6 13.5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M14.5 7L17 7C17.5523 7 18 7.44772 18 8L18 10.5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Package":"<path d=\"M4 8V16L12 21L20 16V8\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 13V21\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 3L20 8L12 13L4 8L12 3Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M8 5.5L16 10.5\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","Globe":"<circle cx=\"12\" cy=\"12\" r=\"9\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/><ellipse cx=\"12\" cy=\"12\" rx=\"4\" ry=\"9\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/><path d=\"M3 12H21\" stroke=\"currentColor\" stroke-width=\"VAR_SW\"/>","Cursor":"<path d=\"M4.59619 4.59619L11.6673 20.8596L13.0815 13.0815L20.8596 11.6673L4.59619 4.59619Z\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><rect fill=\"white\"/>","Move":"<path d=\"M6 9L3 12L6 15\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M9.00012 6L12.0001 3L15.0001 6\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M15.0001 18L12.0001 21L9.00012 18\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M18 9L21 12L18 15\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M3 12H21\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12.0001 3V21\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>","HandMove":"<path d=\"M20 16V8.5C20 7.672 19.359 7 18.52 7C18 7 17 7.3 17 8.5V5.5C17 4.672 16.359 4 15.52 4C15.013 4 14 4.3 14 5.5V3.5C14 2.672 13.359 2 12.52 2C11.68 2 11 2.672 11 3.5V5.5C11 4.3 10.007 4 9.5 4C8.66 4 8 4.691 8 5.52V14\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M11 5.5V11\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M14 5.5V11\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M17 5.5V11\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M20 16C20 20 16.866 22 13 22C9.134 22 7.804 21 4.804 16L3.233 13.395C2.697 12.527 3.126 11.401 4.114 11.081C4.43707 10.9755 4.78477 10.9718 5.10998 11.0706C5.43518 11.1693 5.72216 11.3657 5.932 11.633L8 14.033\" stroke=\"currentColor\" stroke-width=\"VAR_SW\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"};
+const SW = 1.9;
+function svg(name, cls){
+  const body = (ICONS[name] || "").replaceAll("VAR_SW", SW);
+  return `<svg viewBox="0 0 24 24" fill="none" class="${cls||""}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+}
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+/* ── статичные иконки ── */
+$("#bPin").innerHTML   = svg("PinAlt");
+$("#bHist").innerHTML  = svg("History");
+$("#bSet").innerHTML   = svg("Settings");
+$("#bClose").innerHTML = svg("Close");
+$("#setClose").innerHTML = svg("Close");
+$("#histClose").innerHTML = svg("Close");
+$("#uIcon").innerHTML  = svg("LinkAlt");
+$("#clipIcon").innerHTML = svg("ClipboardCheck");
+$("#filmIcon").innerHTML = svg("FilmSlate");
+$("#jpgBtn").innerHTML   = svg("Image") + "JPG";
+$("#bigBtn").innerHTML   = svg("Expand");
+$("#destIcon").innerHTML = svg("FolderDownload");
+$("#destCvr").innerHTML  = svg("ChevronRight");
+$("#errIcon").innerHTML  = svg("WarningTriangle");
+
+/* ── данные вариантов ── */
+const OPT = [
+  {g:"video", id:"v2160", nm:"2160p", sub:"4K", mb:1430, c:"blue",  pill:"4K",
+   det:"MP4 · avc1 · 30 к/с · 18,2 Мбит/с · itag 315+140", ok:"Играет везде, но тяжёлый"},
+  {g:"video", id:"v1440", nm:"1440p", sub:"2K", mb:764,  c:"blue",
+   det:"MP4 · avc1 · 30 к/с · 9,6 Мбит/с · itag 308+140", ok:"Играет везде"},
+  {g:"video", id:"v1080", nm:"1080p", sub:"Full HD", mb:318, c:"blue", pill:"TG",
+   det:"MP4 · avc1.640028 · 30 к/с · 4,1 Мбит/с · itag 137+140", ok:"Годится для Telegram и iPhone"},
+  {g:"video", id:"v720",  nm:"720p",  sub:"HD", mb:167, c:"blue", pill:"TG",
+   det:"MP4 · avc1.4d401f · 30 к/с · 2,1 Мбит/с · itag 136+140", ok:"Годится для Telegram и iPhone"},
+  {g:"video", id:"v480",  nm:"480p",  sub:"", mb:92, c:"blue",
+   det:"MP4 · avc1.4d401e · 30 к/с · 1,1 Мбит/с · itag 135+140", ok:"Экономно по трафику"},
+  {g:"video", id:"a1080", nm:"1080p", sub:"VP9", mb:206, c:"orange",
+   det:"WebM · vp09.00.40.08 · 30 к/с · 2,6 Мбит/с · itag 248+251", ok:"На 35 % легче, но не откроется в QuickTime"},
+  {g:"video", id:"a720",  nm:"720p",  sub:"AV1", mb:88, c:"orange",
+   det:"WebM · av01.0.05M.08 · 30 к/с · 1,1 Мбит/с · itag 395+251", ok:"Самый лёгкий, нужен современный плеер"},
+  {g:"audio", id:"mp3",   nm:"MP3",  sub:"320 кбит/с", mb:24.1, c:"red", pill:"ТЕГИ",
+   det:"Перекодирование из Opus 160 кбит/с · ffmpeg · обложка в тегах", ok:"Совместим со всем"},
+  {g:"audio", id:"m4a",   nm:"M4A",  sub:"оригинал", mb:9.8, c:"red",
+   det:"AAC 128 кбит/с · itag 140 · без перекодирования", ok:"Быстро и без потери качества"},
+  {g:"cover", id:"jpg",   nm:"JPEG",  sub:"1280×720", mb:0.094, c:"steel",
+   det:"JPEG · maxresdefault · 1280×720", ok:"Сохранится рядом с видео"},
+];
+const GRP = {video:"Видео", audio:"Аудио", cover:"Обложка"};
+const CVAR = {blue:"var(--blue)", orange:"var(--orange)", red:"var(--red)", steel:"var(--steel)"};
+
+let sel = "v1080";          // выбранный видео/аудио вариант
+let cover = false;          // обложка отдельным файлом
+let open = {video:1, audio:1, cover:1};
+let openRow = null;         // раскрытые подробности
+let showAlt = false;        // экономные кодеки VP9/AV1
+let state = "ready";
+
+const MAXMB = Math.max(...OPT.map(o => o.mb));
+const scale = mb => Math.sqrt(mb) / Math.sqrt(MAXMB);       // корневая шкала
+const LANE = 400 - 150 - 10;                                 // ширина дорожки, px
+const wOf = mb => Math.max(26, Math.round(scale(mb) * LANE));
+const fmt = mb => mb >= 1024 ? (mb/1024).toFixed(2).replace(".", ",") + " ГБ"
+               : mb >= 10   ? Math.round(mb) + " МБ"
+               : mb >= 1    ? mb.toFixed(1).replace(".", ",") + " МБ"
+               : Math.round(mb*1024) + " КБ";
+
+const plural = (n, forms) => {           // 1 вариант / 2 варианта / 5 вариантов
+  const a = Math.abs(n) % 100, b = a % 10;
+  return `${n} ${a > 10 && a < 20 ? forms[2] : b === 1 ? forms[0] : b > 1 && b < 5 ? forms[1] : forms[2]}`;
+};
+
+/* ── линейка ── */
+function drawRuler(){
+  const ticks = [10, 100, 400, 1200];
+  $("#rulerLane").innerHTML = ticks.map(t => {
+    const x = Math.round(scale(t) * LANE) + 5;   // + отступ дорожки
+    const flip = x > LANE - 48;          // у правого края — подпись влево от риски
+    return `<div class="t" style="left:${x}px">
+      <span style="${flip ? "left:auto; right:4px; text-align:right" : ""}">${fmt(t)}</span></div>`;
+  }).join("");
+}
+
+/* ── список дорожек ── */
+function drawTracks(){
+  const t = $("#tracks");
+
+  if (state === "analyzing"){
+    t.innerHTML = `<div class="grp" data-open="1"><div class="h">${svg("ChevronDown","cv")}Анализ ссылки</div><div class="n">yt-dlp</div></div>` +
+      [.85,.55,.68,.34,.22,.44].map((k,i) =>
+        `<div class="row" style="cursor:default"><div class="h">${svg("ChevronRight","cv")}<span class="sw" style="background:var(--bg3)"></span>
+         <span class="sk" style="width:${40+k*46}px; height:9px"></span></div>
+         <div class="lane"><div class="sk" style="width:${Math.round(k*LANE)}px; animation-delay:${i*.09}s"></div></div></div>`).join("");
+    return;
+  }
+  if (state === "idle" || state === "clipboard" || state === "error"){ t.innerHTML = ""; return; }
+
+  if (state === "downloading" || state === "done"){
+    const o = OPT.find(x => x.id === sel);
+    const done = state === "done";
+    t.innerHTML =
+      `<div class="grp" data-open="1"><div class="h">${svg("ChevronDown","cv")}${done ? "Загружено" : "Загрузка"}</div>
+        <div class="n">${done ? "1 из 1" : "1 из 2"}</div></div>
+       <div class="row sel" style="cursor:default">
+         <div class="h">${svg("ChevronRight","cv")}<span class="sw" style="background:${CVAR[o.c]}"></span>
+           <span class="name">${o.nm}<em>${o.sub}</em></span></div>
+         <div class="lane"><div class="prog" style="--c:${done ? "var(--green)" : CVAR[o.c]}">
+           <div class="fill" id="fill" style="width:${done?100:0}%"></div>
+           <div class="pct" id="pct">${done ? fmt(o.mb) : "0 %"}</div></div></div>
+       </div>` +
+      (done
+        ? `<div class="strip ok">${svg("CheckDouble")}
+             <span>Сохранено в <b>~/Movies/YTVD</b> — за 26 с</span></div>`
+        : `<div class="stat"><div class="h" id="phase">подключение…</div>
+             <div class="v" id="speed">—</div></div>`) +
+      (done ? "" :
+       `<div class="row" style="cursor:default; opacity:.62">
+          <div class="h">${svg("ChevronRight","cv")}<span class="sw" style="background:var(--orange)"></span>
+            <span class="name">Vimeo<em>2160p</em></span></div>
+          <div class="lane"><div class="blk" style="--c:var(--bg3); width:118px; color:var(--dim); text-shadow:none">в очереди</div></div>
+        </div>`);
+    return;
+  }
+
+  /* обычный список вариантов */
+  let html = "";
+  for (const g of ["video","audio","cover"]){
+    let items = OPT.filter(o => o.g === g);
+    const alt = items.filter(o => o.c === "orange");
+    if (g === "video" && !showAlt) items = items.filter(o => o.c !== "orange");
+    const cnt = g === "cover" ? plural(items.length, ["файл","файла","файлов"])
+                              : plural(items.length, ["вариант","варианта","вариантов"]);
+    html += `<div class="grp" data-grp="${g}" data-open="${open[g]}">
+        <div class="h">${svg("ChevronDown","cv")}${GRP[g]}</div>
+        <div class="n">${cnt}</div></div>`;
+    if (!open[g]) continue;
+    for (const o of items){
+      const on = g === "cover" ? cover : sel === o.id;
+      const w = wOf(o.mb);
+      const size = fmt(o.mb);
+      const pillIn = o.pill && w >= 112;                  // бейдж влезает в плашку
+      const sizeIn = w >= (pillIn ? 112 : 76);            // и цифра тоже
+      const out = [o.pill && !pillIn ? `<span class="pill">${o.pill}</span>` : "",
+                   sizeIn ? "" : size].filter(Boolean).join("");
+      html += `<div class="row ${on?"sel":""}" data-id="${o.id}" data-open="${openRow===o.id?1:0}">
+        <div class="h">${svg("ChevronRight","cv")}<span class="sw" style="background:${CVAR[o.c]}"></span>
+          <span class="name">${o.nm}${o.sub?`<em>${o.sub}</em>`:""}</span></div>
+        <div class="lane">
+          <div class="blk grain" style="--c:${CVAR[o.c]}; width:${w}px">
+            ${svg("Check","ck")}${pillIn?`<span class="pill">${o.pill}</span>`:""}${sizeIn?size:""}
+          </div>${out?`<span class="out">${out}</span>`:""}
+        </div>
+        <div class="det">${o.det}<div class="note">${svg("Sparkles")}${o.ok}</div></div>
+      </div>`;
+    }
+    if (g === "video" && !showAlt && alt.length)
+      html += `<div class="more" data-more="1"><div class="h"></div>
+        <div class="v">${svg("Add")}ещё ${alt.length}: VP9 / AV1 — легче на треть</div></div>`;
+  }
+  t.innerHTML = html;
+}
+
+/* ── подвал ── */
+function drawFoot(){
+  const r = $("#goRow");
+  if (state === "downloading"){
+    r.innerHTML = `<button class="go ghost" id="cancel">${svg("Close")}<span>Отменить</span></button>`;
+    $("#cancel").onclick = () => go("ready");
+    return;
+  }
+  if (state === "done"){
+    r.innerHTML = `<button class="go ghost" id="finder">${svg("Folder")}<span>В Finder</span></button>
+                   <button class="go" id="again">${svg("Play")}<span>Открыть</span></button>`;
+    $("#again").onclick = () => go("ready");
+    $("#finder").onclick = () => go("ready");
+    return;
+  }
+  if (state === "idle" || state === "clipboard" || state === "analyzing" || state === "error"){
+    const busy = state === "analyzing";
+    r.innerHTML = `<button class="go" disabled><span>${busy ? "Анализирую…" : "Вставьте ссылку"}</span></button>`;
+    return;
+  }
+  const o = OPT.find(x => x.id === sel);
+  const total = o.mb + (cover ? OPT.find(x=>x.id==="jpg").mb : 0);
+  r.innerHTML = `<button class="go" id="dl">${svg("Download")}<span>Скачать ${o.nm} · ${fmt(total)}${cover?" + JPG":""}</span></button>`;
+  $("#dl").onclick = () => go("downloading");
+}
+
+/* ── состояния ── */
+function apply(){
+  const w = $("#w");
+  w.dataset.state = state;
+  const show = (el, v) => $(el).style.display = v ? "" : "none";
+  const s = state;
+
+  $("#clipStrip").style.display = s === "clipboard" ? "flex" : "none";
+  $("#srcs").style.display = (s === "idle" || s === "clipboard") ? "flex" : "none";
+  $("#card").style.display = (s === "idle" || s === "clipboard" || s === "error") ? "none"
+                           : ($("#card").classList.contains("big") ? "block" : "grid");
+  show("#ruler", s === "ready");
+  $("#errStrip").style.display = s === "error" ? "flex" : "none";
+
+  $("#input").value =
+    s === "idle" || s === "clipboard" ? "" : "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
+  $("#uRight").outerHTML = s === "analyzing"
+    ? `<span class="spin" id="uRight"></span>`
+    : `<span class="kbd" id="uRight">${s === "idle" || s === "clipboard" ? "⌘V" : "⌫"}</span>`;
+
+  $("#metaBox").innerHTML = s === "analyzing"
+    ? `<div class="sk" style="width:96%"></div><div class="sk" style="width:64%"></div>
+       <div class="sk" style="width:44%; height:8px; margin-top:7px"></div>`
+    : `<h1 id="mTitle">Big Buck Bunny — открытый анимационный фильм студии Blender</h1>
+       <p><span>Blender Foundation</span></p>
+       <p style="margin-top:2px"><span>4,2 млн просмотров</span><i></i><span>2 года назад</span></p>`;
+
+  $$(".bar .chip[data-go]").forEach(c => c.classList.toggle("on", c.dataset.go === s));
+  drawTracks(); drawFoot();
+}
+
+let timer = null;
+function go(s){
+  clearInterval(timer); timer = null;
+  state = s; apply();
+  if (s === "analyzing") timer = setTimeout(() => go("ready"), 1300);
+  if (s === "downloading") runProgress();
+}
+
+function runProgress(){
+  let p = 0;
+  const o = OPT.find(x => x.id === sel);
+  const phases = [[0,"видео · 1080p"],[46,"аудио · AAC 128"],[68,"склейка ffmpeg"],[92,"перенос в папку"]];
+  timer = setInterval(() => {
+    p = Math.min(100, p + (p < 45 ? 3.1 : p < 68 ? 5.4 : 2.4));
+    const fill = $("#fill"), pct = $("#pct"), ph = $("#phase"), sp = $("#speed");
+    if (!fill) return clearInterval(timer);
+    fill.style.width = p + "%";
+    pct.textContent = Math.round(p) + " %";
+    const cur = phases.filter(x => p >= x[0]).pop();
+    ph.textContent = cur[1];
+    const left = Math.max(0, Math.round((100 - p) * .28));
+    sp.innerHTML = `${(9 + Math.sin(p/7)*3.4).toFixed(1).replace(".",",")} МБ/с<i></i>0:${String(left).padStart(2,"0")}<i></i>${Math.round(o.mb*p/100)} / ${fmt(o.mb)}`;
+    if (p >= 100){ clearInterval(timer); setTimeout(() => go("done"), 420); }
+  }, 110);
+}
+
+/* ── события ── */
+$("#tracks").addEventListener("click", e => {
+  if (e.target.closest(".more")){ showAlt = true; drawTracks(); return; }
+  const grp = e.target.closest(".grp");
+  if (grp){ open[grp.dataset.grp] = open[grp.dataset.grp] ? 0 : 1; drawTracks(); return; }
+  const row = e.target.closest(".row"); if (!row || !row.dataset.id) return;
+  if (e.target.closest(".cv")){ openRow = openRow === row.dataset.id ? null : row.dataset.id; drawTracks(); return; }
+  if (row.dataset.id === "jpg") cover = !cover; else sel = row.dataset.id;
+  drawTracks(); drawFoot();
+});
+
+$$(".bar .chip[data-go], .mini[data-go]").forEach(c => c.onclick = () => go(c.dataset.go));
+$("#clipBtn").onclick = () => go("analyzing");
+$("#input").addEventListener("keydown", e => { if (e.key === "Enter") go("analyzing"); });
+$("#input").addEventListener("paste", () => setTimeout(() => go("analyzing"), 60));
+$("#jpgBtn").onclick = e => {
+  const b = e.currentTarget; b.classList.add("saved");
+  b.innerHTML = svg("Check") + "Сохранено";
+  setTimeout(() => { b.classList.remove("saved"); b.innerHTML = svg("Image") + "JPG"; }, 1800);
+};
+$("#bigBtn").onclick = e => {
+  const big = $("#card").classList.toggle("big");
+  e.currentTarget.innerHTML = svg(big ? "Minimize" : "Expand");
+  apply();                                   // раскладку решает только apply()
+};
+$("#bPin").onclick = e => e.currentTarget.classList.toggle("on");
+$("#bSet").onclick = () => $("#pSet").classList.add("open");
+$("#bHist").onclick = () => $("#pHist").classList.add("open");
+$$("[data-close]").forEach(b => b.onclick = () => $("#" + b.dataset.close).classList.remove("open"));
+$$("[data-tg]").forEach(t => t.onclick = () => t.classList.toggle("on"));
+$$("[data-seg] button").forEach(b => b.onclick = () => {
+  b.parentElement.querySelectorAll("button").forEach(x => x.classList.remove("on")); b.classList.add("on");
+});
+$("#theme").onclick = e => {
+  const on = document.body.classList.toggle("light");
+  e.currentTarget.textContent = on ? "Тёмная тема" : "Светлая тема";
+};
+$("#bClose").onclick = () => go("idle");
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape"){ $$(".panel").forEach(p => p.classList.remove("open")); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key === ","){ e.preventDefault(); $("#pSet").classList.add("open"); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "v" && state !== "ready"){ go("analyzing"); return; }
+  if (state !== "ready") return;
+  const list = OPT.filter(o => o.g !== "cover" && open[o.g]).map(o => o.id);
+  const i = list.indexOf(sel);
+  if (e.key === "ArrowDown"){ e.preventDefault(); sel = list[Math.min(list.length-1, i+1)]; drawTracks(); drawFoot(); }
+  if (e.key === "ArrowUp"){ e.preventDefault(); sel = list[Math.max(0, i-1)]; drawTracks(); drawFoot(); }
+  if (e.key === "Enter"){ e.preventDefault(); go("downloading"); }
+});
+
+$("#play").onclick = () => {
+  const seq = [["idle",0],["clipboard",900],["analyzing",1400],["ready",1500],["downloading",1800]];
+  seq.forEach(([s, d]) => setTimeout(() => go(s), d));
+};
+
+/* ── история ── */
+$("#histBody").innerHTML = [
+  ["Как работает ffmpeg за 12 минут", "1080p · MP4", "318 МБ", "10 мин назад"],
+  ["Lo-fi beats для работы", "MP3 · 320", "24 МБ", "вчера"],
+  ["Обзор Mac Studio M4 Ultra", "2160p · MP4", "1,43 ГБ", "вчера"],
+  ["Дока по Rutube API", "720p · MP4", "167 МБ", "3 дня назад"],
+  ["Концерт в Зарядье", "M4A · оригинал", "58 МБ", "неделю назад"],
+  ["Разбор SwiftUI Observable", "1440p · MP4", "764 МБ", "неделю назад"],
+  ["Подкаст: сборка на Apple Silicon", "MP3 · 320", "86 МБ", "2 недели назад"],
+  ["Тайм-лапс сборки стенда", "2160p · MP4", "1,1 ГБ", "2 недели назад"],
+].map(([t, q, z, w]) => `<div class="hrow"><div class="t grain"></div>
+   <div class="nm">${t}<small>${q} · ${w}</small></div><div class="z">${z}</div></div>`).join("");
+
+/* ── зерно ── */
+const noise = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='110' height='110' filter='url(%23n)'/%3E%3C/svg%3E")`;
+document.documentElement.style.setProperty("--noise", noise);
+
+drawRuler(); apply();
+</script>

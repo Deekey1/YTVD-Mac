@@ -1,0 +1,941 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YTVD — прототип интерфейса</title>
+<style>
+/* ───────────────────────── токены ───────────────────────── */
+:root{
+  --blue:#3b8fd1; --orange:#e08b34; --red:#d74b3c; --steel:#6d7a86; --green:#4f9d5d;
+
+  --bg:#242424; --bg2:#2c2c2c; --bg3:#333333; --lane:#1f1f1f;
+  --sep:#151515; --hair:rgba(255,255,255,.07);
+  --txt:#eaeaea; --dim:#9a9a9a; --mut:#6e6e6e;
+  --chrome:#1c1c1c;
+  --shadow:0 26px 70px rgba(0,0,0,.62), 0 3px 10px rgba(0,0,0,.5);
+  --focus:rgba(255,255,255,.9);
+  --page:#3a3d42;
+  --r:5px;
+}
+.light{
+  --bg:#ececed; --bg2:#e2e2e3; --bg3:#d8d8d9; --lane:#dcdcdd;
+  --sep:#c2c2c4; --hair:rgba(0,0,0,.09);
+  --txt:#1b1b1c; --dim:#5f5f62; --mut:#8b8b8f;
+  --chrome:#dcdcde;
+  --shadow:0 26px 70px rgba(0,0,0,.28), 0 3px 10px rgba(0,0,0,.14);
+  --focus:rgba(0,0,0,.72);
+  --page:#b9bcc2;
+}
+
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  font:13px/1.35 -apple-system, "SF Pro Text", system-ui, "Helvetica Neue", sans-serif;
+  font-feature-settings:"tnum" 1, "cv08" 1;
+  color:var(--txt);
+  background:
+    radial-gradient(1100px 620px at 22% 8%, #4b5058 0%, transparent 62%),
+    radial-gradient(900px 700px at 88% 92%, #33363b 0%, transparent 58%),
+    var(--page);
+  -webkit-font-smoothing:antialiased;
+  padding:22px 22px 60px;
+}
+.grain-src{position:fixed; width:0; height:0}
+
+/* зерно — как на референсе */
+.grain::after{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  background-image:var(--noise); background-size:110px 110px;
+  mix-blend-mode:overlay; opacity:.14;
+}
+.blk.grain::after{opacity:.3}
+
+/* ───────────────────────── страница ───────────────────────── */
+.bar{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  max-width:1180px; margin:0 auto 20px;
+}
+.bar .sp{flex:1}
+.chip{
+  display:inline-flex; align-items:center; gap:6px;
+  height:28px; padding:0 11px; border-radius:6px; cursor:pointer;
+  background:rgba(255,255,255,.08); color:#e9e9ea; border:1px solid rgba(255,255,255,.1);
+  font-size:12px; letter-spacing:.01em; transition:background .14s, transform .1s;
+  backdrop-filter:blur(8px);
+}
+.chip:hover{background:rgba(255,255,255,.15)}
+.chip:active{transform:translateY(1px)}
+.chip.on{background:#f2f2f3; color:#1b1b1c; border-color:transparent; font-weight:600}
+.chip svg{width:14px; height:14px}
+.bar .lbl{font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:rgba(255,255,255,.5); margin-right:2px}
+
+.split{max-width:1180px; margin:0 auto; display:grid; grid-template-columns:auto 1fr; gap:38px; align-items:start}
+@media (max-width:1000px){ .split{grid-template-columns:1fr; gap:26px} }
+
+/* ───────────────────────── окно-виджет ───────────────────────── */
+.widget{
+  --hcol:150px;
+  width:400px; border-radius:13px; background:var(--bg); color:var(--txt);
+  box-shadow:var(--shadow), 0 0 0 1px rgba(0,0,0,.55), inset 0 0 0 1px var(--hair);
+  overflow:hidden; position:relative; user-select:none;
+  transition:background .2s;
+}
+
+/* заголовок окна */
+.tbar{
+  height:34px; display:flex; align-items:center; gap:8px; padding:0 8px 0 11px;
+  background:var(--chrome); border-bottom:1px solid var(--sep); cursor:grab;
+}
+.tbar:active{cursor:grabbing}
+.mark{display:flex; align-items:center; gap:7px; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--dim); font-weight:600}
+.mark i{width:9px; height:9px; border-radius:2px; background:var(--red); box-shadow:inset 0 0 0 1px rgba(0,0,0,.35); display:block}
+.tbar .sp{flex:1}
+.ib{
+  width:24px; height:24px; border-radius:5px; display:grid; place-items:center;
+  color:var(--mut); cursor:pointer; border:none; background:transparent; transition:.13s;
+}
+.ib:hover{background:var(--bg3); color:var(--txt)}
+.ib.on{background:var(--blue); color:#fff}
+.ib svg{width:15px; height:15px}
+
+/* поле ссылки */
+.url{
+  display:flex; align-items:center; gap:8px; height:42px; padding:0 10px;
+  border-bottom:1px solid var(--sep); background:var(--bg2);
+}
+.url > svg{width:15px; height:15px; color:var(--mut); flex:none}
+.url input{
+  flex:1; background:transparent; border:none; outline:none; color:var(--txt);
+  font:13px/1 inherit; letter-spacing:.005em;
+}
+.url input::placeholder{color:var(--mut)}
+.kbd{
+  font-size:10px; color:var(--mut); border:1px solid var(--hair); border-radius:4px;
+  padding:2px 5px; letter-spacing:.04em; background:var(--bg); white-space:nowrap;
+}
+.spin{width:14px; height:14px; border-radius:50%; border:2px solid var(--hair); border-top-color:var(--blue); animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* подсказка «в буфере ссылка» */
+.clip{
+  display:none; align-items:center; gap:8px; padding:7px 10px;
+  background:linear-gradient(180deg, rgba(59,143,209,.20), rgba(59,143,209,.12));
+  border-bottom:1px solid var(--sep); font-size:12px; color:var(--txt);
+  animation:drop .22s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes drop{from{opacity:0; transform:translateY(-6px)} to{opacity:1; transform:none}}
+.clip svg{width:14px; height:14px; color:var(--blue); flex:none}
+.clip b{font-weight:500; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1}
+
+/* поддерживаемые площадки (пустое состояние) */
+.srcs{
+  display:none; gap:13px; padding:9px 11px; background:var(--bg); border-bottom:1px solid var(--sep);
+  font-size:11px; color:var(--mut);
+}
+.srcs span{display:flex; align-items:center; gap:5px}
+.srcs i{width:9px; height:9px; border-radius:2px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+
+/* карточка превью: компактная по умолчанию, разворачивается на всю ширину */
+.card{
+  display:grid; grid-template-columns:150px 1fr; gap:10px; padding:9px 11px;
+  background:var(--bg2); border-bottom:1px solid var(--sep); align-items:start;
+}
+.card.big{display:block; padding:0}
+.prev{position:relative; aspect-ratio:16/9; background:var(--lane); overflow:hidden; border-radius:5px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+.card.big .prev{border-radius:0; box-shadow:none; border-bottom:1px solid var(--sep)}
+.thumb{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(90% 120% at 20% 15%, #5d6f8a 0%, transparent 60%),
+    radial-gradient(80% 100% at 85% 80%, #7a4f43 0%, transparent 55%),
+    linear-gradient(150deg, #3d4551, #24282e 60%, #191c20);
+}
+.thumb .film{
+  position:absolute; inset:0; display:grid; place-items:center; color:rgba(255,255,255,.16);
+}
+.thumb .film svg{width:52px; height:52px}
+.tag{
+  position:absolute; display:inline-flex; align-items:center; gap:5px; height:20px; padding:0 7px;
+  border-radius:4px; font-size:10.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+  color:#fff; box-shadow:inset 0 0 0 1px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.35);
+}
+.tag.src{left:5px; top:5px; background:var(--red); height:16px; font-size:9px; padding:0 5px}
+.card.big .tag.src{left:8px; top:8px; height:20px; font-size:10.5px; padding:0 7px}
+.tag.dur{right:5px; bottom:5px; background:rgba(15,15,15,.85); letter-spacing:.02em; font-variant-numeric:tabular-nums; height:16px; font-size:9.5px; padding:0 4px}
+.card.big .tag.dur{right:8px; bottom:8px; height:20px; font-size:10.5px; padding:0 7px}
+
+/* кнопки поверх обложки */
+.ovl{position:absolute; left:5px; bottom:5px; display:flex; gap:4px; opacity:0; transform:translateY(3px); transition:.16s}
+.prev:hover .ovl, .prev:focus-within .ovl{opacity:1; transform:none}
+.ovl button{
+  height:20px; min-width:20px; padding:0 5px; border-radius:4px; border:none; cursor:pointer;
+  background:rgba(15,15,15,.86); color:#fff; display:inline-flex; align-items:center; gap:4px;
+  font:9.5px/1 inherit; font-weight:600; letter-spacing:.04em;
+}
+.ovl button:hover{background:var(--steel)}
+.ovl button.saved{background:var(--green)}
+.ovl svg{width:12px; height:12px}
+
+/* мета */
+.meta{min-width:0}
+.card.big .meta{padding:9px 11px 10px}
+.meta h1{
+  font-size:12.5px; font-weight:600; line-height:1.32; letter-spacing:-.005em;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.card.big .meta h1{-webkit-line-clamp:2; font-size:13px}
+.meta p{
+  margin-top:4px; font-size:11px; color:var(--dim); display:flex; gap:5px; align-items:center;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.meta p i{width:3px; height:3px; border-radius:50%; background:var(--mut); display:block; flex:none}
+.meta p span{overflow:hidden; text-overflow:ellipsis}
+.meta .sk{height:9px; border-radius:3px; margin-bottom:5px}
+
+/* линейка масштаба */
+.ruler{
+  display:grid; grid-template-columns:var(--hcol) 1fr; height:22px; align-items:center;
+  border-bottom:1px solid var(--sep); background:var(--bg);
+}
+.ruler .h{
+  padding-left:11px; font-size:9.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--mut);
+  border-right:1px solid var(--sep); height:100%; display:flex; align-items:center;
+}
+.ruler .l{position:relative; height:100%; padding:0 10px 0 5px}
+.ruler .t{position:absolute; top:0; bottom:0; border-left:1px dashed var(--hair)}
+.ruler .t span{position:absolute; left:4px; top:5px; font-size:9.5px; color:var(--mut); white-space:nowrap}
+
+/* ───────────── список дорожек ───────────── */
+.tracks{background:var(--bg)}
+.grp{
+  display:grid; grid-template-columns:var(--hcol) 1fr; height:22px; align-items:center;
+  background:var(--bg2); border-bottom:1px solid var(--sep); cursor:pointer;
+}
+.grp .h{
+  display:flex; align-items:center; gap:5px; padding-left:7px; height:100%;
+  font-size:9.5px; text-transform:uppercase; letter-spacing:.11em; color:var(--dim); font-weight:600;
+  border-right:1px solid var(--sep);
+}
+.grp .h svg{width:11px; height:11px; color:var(--mut); transition:transform .16s}
+.grp[data-open="0"] .h svg.cv{transform:rotate(-90deg)}
+.grp .n{padding-right:10px; text-align:right; font-size:9.5px; color:var(--mut); letter-spacing:.04em}
+
+.row{
+  display:grid; grid-template-columns:var(--hcol) 1fr; min-height:28px;
+  border-bottom:1px solid var(--sep); cursor:pointer; position:relative;
+  background:var(--bg);
+}
+.row:hover{background:var(--bg2)}
+.row.sel{background:var(--bg3)}
+.row .h{
+  display:flex; align-items:center; gap:6px; padding:0 8px 0 7px; height:28px;
+  border-right:1px solid var(--sep); overflow:hidden;
+}
+.cv{width:11px; height:11px; color:var(--mut); flex:none; transition:transform .16s; border-radius:2px}
+.row[data-open="1"] .cv{transform:rotate(90deg)}
+.cv:hover{color:var(--txt)}
+.sw{width:11px; height:11px; border-radius:2.5px; flex:none; box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+.row .name{font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.row .name em{font-style:normal; color:var(--mut); font-weight:400; font-size:11px; margin-left:4px}
+.lane{position:relative; height:28px; display:flex; align-items:center; padding:0 10px 0 5px; overflow:hidden}
+
+/* строка «показать ещё» */
+.more{
+  display:grid; grid-template-columns:var(--hcol) 1fr; height:22px; align-items:center;
+  border-bottom:1px solid var(--sep); cursor:pointer; background:var(--bg);
+}
+.more:hover{background:var(--bg2)}
+.more .h{border-right:1px solid var(--sep); height:100%}
+.more .v{
+  display:flex; align-items:center; gap:5px; padding-left:5px; font-size:10.5px; color:var(--mut);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.more:hover .v{color:var(--dim)}
+.more svg{width:11px; height:11px}
+
+/* блок-плашка */
+.blk{
+  position:relative; height:20px; border-radius:var(--r); flex:none;
+  display:flex; align-items:center; justify-content:flex-end; gap:5px; padding:0 7px;
+  white-space:nowrap; overflow:hidden;
+  font-size:10.5px; font-weight:600; color:rgba(255,255,255,.96); letter-spacing:.01em;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 42%, rgba(0,0,0,.16));
+  background-color:var(--c);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.34), 0 1px 2px rgba(0,0,0,.28);
+  transition:filter .14s, box-shadow .14s, width .35s cubic-bezier(.3,.9,.3,1);
+  text-shadow:0 1px 1px rgba(0,0,0,.28);
+}
+.row:hover .blk{filter:brightness(1.13)}
+.row.sel .blk{box-shadow:inset 0 0 0 1px rgba(0,0,0,.34), 0 0 0 2px var(--focus), 0 1px 3px rgba(0,0,0,.4)}
+.blk .ck{width:12px; height:12px; margin-right:auto; opacity:0; transition:.12s; flex:none}
+.row.sel .blk .ck{opacity:1}
+.lane .out{
+  display:flex; align-items:center; gap:5px; margin-left:7px;
+  font-size:10.5px; color:var(--dim); white-space:nowrap; font-weight:500;
+}
+.pill{
+  height:14px; padding:0 5px; border-radius:3px; font-size:9px; font-weight:700; letter-spacing:.06em;
+  display:inline-flex; align-items:center; flex:none;
+  background:rgba(0,0,0,.26); color:rgba(255,255,255,.92);
+}
+.out .pill{background:var(--bg3); color:var(--mut)}
+
+/* раскрытые детали */
+.det{
+  grid-column:1 / -1; display:none; padding:7px 11px 9px 25px; background:var(--lane);
+  border-top:1px solid var(--sep); font-size:11px; color:var(--dim); line-height:1.5;
+}
+.row[data-open="1"] .det{display:block; animation:drop .18s ease}
+.det code{font:10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--txt); background:var(--bg3); padding:2px 4px; border-radius:3px}
+.det .note{display:flex; align-items:center; gap:5px; margin-top:5px; color:var(--mut)}
+.det .note svg{width:12px; height:12px; flex:none}
+
+/* скелет анализа */
+.sk{height:20px; border-radius:var(--r); background:var(--bg3); animation:pulse 1.15s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.45} 50%{opacity:.95}}
+
+/* строка прогресса */
+.prog{
+  position:relative; height:20px; flex:1; border-radius:var(--r); overflow:hidden;
+  background:var(--lane); box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);
+}
+.prog .fill{
+  position:absolute; inset:0 auto 0 0; width:0%; border-radius:var(--r);
+  background:linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,0) 45%, rgba(0,0,0,.18));
+  background-color:var(--c); transition:width .3s linear;
+}
+.prog .fill::before{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(100deg, transparent 25%, rgba(255,255,255,.22) 50%, transparent 75%);
+  background-size:220% 100%; animation:sheen 1.5s linear infinite;
+}
+@keyframes sheen{to{background-position:-220% 0}}
+.prog .pct{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:flex-end;
+  padding-right:7px; font-size:10.5px; font-weight:700; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.5);
+}
+.stat{
+  display:grid; grid-template-columns:var(--hcol) 1fr; border-bottom:1px solid var(--sep); background:var(--bg);
+}
+.stat .h{
+  border-right:1px solid var(--sep); padding:0 8px 6px 25px; font-size:10.5px; color:var(--mut);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.stat .v{
+  padding:0 10px 6px 5px; font-size:10.5px; color:var(--dim); display:flex; gap:5px; align-items:center;
+  font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden;
+}
+.stat .v i{width:3px; height:3px; border-radius:50%; background:var(--mut); display:block}
+
+/* очередь / состояния */
+.strip{
+  display:flex; align-items:center; gap:8px; padding:8px 11px; font-size:11.5px; color:var(--dim);
+  border-bottom:1px solid var(--sep); background:var(--bg2);
+}
+.strip svg{width:14px; height:14px; flex:none}
+.strip.err{background:linear-gradient(180deg, rgba(215,75,60,.22), rgba(215,75,60,.12)); color:var(--txt)}
+.strip.err svg{color:var(--red)}
+.strip.ok{background:linear-gradient(180deg, rgba(79,157,93,.22), rgba(79,157,93,.12)); color:var(--txt)}
+.strip.ok svg{color:var(--green)}
+.strip .sp{flex:1}
+.mini{
+  height:22px; padding:0 9px; border-radius:5px; border:1px solid var(--hair); background:var(--bg3);
+  color:var(--txt); font:11px/1 inherit; cursor:pointer; display:inline-flex; align-items:center; gap:5px;
+}
+.mini:hover{background:var(--bg2); border-color:var(--dim)}
+.mini svg{width:12px; height:12px}
+
+/* подвал */
+.foot{padding:9px 10px 10px; background:var(--bg2); border-top:1px solid var(--sep)}
+.dest{
+  display:flex; align-items:center; gap:6px; height:34px; padding:0 8px; flex:none; width:104px;
+  border-radius:6px; background:var(--bg); border:1px solid var(--hair); cursor:pointer;
+  font-size:11.5px; color:var(--dim);
+}
+.dest:hover{border-color:var(--mut); color:var(--txt)}
+.dest svg{width:13px; height:13px; flex:none}
+.dest .p{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dest .cvr{width:11px; height:11px; color:var(--mut)}
+
+.go{
+  width:100%; height:34px; border:none; border-radius:6px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  font:13px/1 inherit; font-weight:600; color:#fff; letter-spacing:.01em;
+  background:linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 45%, rgba(0,0,0,.18));
+  background-color:var(--blue);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.32), 0 1px 3px rgba(0,0,0,.34);
+  transition:filter .13s, transform .08s;
+  position:relative;
+}
+.go:hover{filter:brightness(1.1)}
+.go:active{transform:translateY(1px)}
+.go svg{width:15px; height:15px}
+.go.ghost{background-color:var(--bg3); color:var(--txt); box-shadow:inset 0 0 0 1px var(--hair)}
+.go[disabled]{opacity:.4; cursor:default; filter:none}
+.gorow{display:flex; gap:8px; align-items:center}
+.gorow .go{flex:1; min-width:0; padding:0 8px}
+.gorow .go span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+/* панели настроек/истории */
+.panel{
+  position:absolute; inset:34px 0 0 0; background:var(--bg); z-index:5;
+  display:flex; flex-direction:column;
+  transform:translateY(101%); transition:transform .26s cubic-bezier(.2,.9,.25,1);
+}
+.panel.open{transform:none}
+.phead{
+  display:flex; align-items:center; gap:8px; height:30px; padding:0 8px 0 11px;
+  border-bottom:1px solid var(--sep); background:var(--bg2);
+  font-size:9.5px; text-transform:uppercase; letter-spacing:.11em; color:var(--dim); font-weight:600;
+}
+.phead .sp{flex:1}
+.pbody{overflow:auto; flex:1}
+.pfoot{
+  display:flex; align-items:center; gap:8px; padding:8px 10px; margin-top:auto;
+  border-top:1px solid var(--sep); background:var(--bg2); font-size:10.5px; color:var(--mut);
+}
+.pfoot .sp{flex:1}
+.set{
+  display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;
+  padding:8px 11px; border-bottom:1px solid var(--sep); font-size:12px;
+}
+.set small{display:block; color:var(--mut); font-size:10.5px; margin-top:2px}
+.seg{display:flex; border-radius:5px; overflow:hidden; box-shadow:inset 0 0 0 1px var(--hair)}
+.seg button{
+  border:none; background:var(--bg2); color:var(--dim); font:11px/1 inherit; cursor:pointer;
+  padding:5px 8px; border-right:1px solid var(--sep);
+}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--blue); color:#fff; font-weight:600}
+.tg{
+  width:34px; height:19px; border-radius:4px; background:var(--bg3); cursor:pointer; position:relative;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35); transition:background .16s;
+}
+.tg::after{
+  content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:3px;
+  background:#c8c8c9; box-shadow:0 1px 2px rgba(0,0,0,.4); transition:transform .16s, background .16s;
+}
+.tg.on{background:var(--blue)}
+.tg.on::after{transform:translateX(15px); background:#fff}
+.fld{
+  height:24px; border-radius:5px; background:var(--bg); border:1px solid var(--hair); color:var(--txt);
+  font:11.5px/1 inherit; padding:0 7px; outline:none; width:150px;
+}
+.fld:focus{border-color:var(--blue)}
+
+.hrow{display:grid; grid-template-columns:44px 1fr auto; gap:9px; align-items:center; padding:7px 11px; border-bottom:1px solid var(--sep); cursor:pointer}
+.hrow:hover{background:var(--bg2)}
+.hrow .t{width:44px; height:26px; border-radius:3px; background:linear-gradient(140deg,#4a5462,#22262b); box-shadow:inset 0 0 0 1px rgba(0,0,0,.4); position:relative; overflow:hidden}
+.hrow .nm{font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.hrow .nm small{display:block; color:var(--mut); font-size:10px; margin-top:1px}
+.hrow .z{font-size:10.5px; color:var(--mut); font-variant-numeric:tabular-nums}
+
+/* подсказки клавиш */
+.hint{display:flex; gap:10px; padding:6px 11px; background:var(--chrome); border-top:1px solid var(--sep); font-size:10px; color:var(--mut)}
+.hint b{font-weight:600; color:var(--dim)}
+
+/* ───────────────────────── заметки справа ───────────────────────── */
+.notes{color:#e8e9ea; max-width:520px; padding-top:2px}
+.notes h2{font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:rgba(255,255,255,.55); margin:0 0 12px}
+.notes h3{font-size:13.5px; margin:20px 0 7px; color:#fff}
+.notes h3:first-of-type{margin-top:0}
+.notes ul{list-style:none; display:flex; flex-direction:column; gap:7px}
+.notes li{display:flex; gap:9px; font-size:12.5px; line-height:1.5; color:rgba(255,255,255,.8)}
+.notes li b{color:#fff; font-weight:600}
+.notes li::before{content:""; width:9px; height:9px; border-radius:2px; background:var(--blue); flex:none; margin-top:5px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+.notes li.o::before{background:var(--orange)} .notes li.r::before{background:var(--red)} .notes li.s::before{background:var(--steel)}
+.legend{display:flex; gap:14px; flex-wrap:wrap; margin:10px 0 0}
+.legend span{display:flex; align-items:center; gap:6px; font-size:11.5px; color:rgba(255,255,255,.75)}
+.legend i{width:11px; height:11px; border-radius:2.5px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+</style>
+
+<svg class="grain-src"><filter id="nz"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter></svg>
+
+<div class="bar">
+  <span class="lbl">Сценарий</span>
+  <button class="chip" data-go="idle">Пусто</button>
+  <button class="chip" data-go="clipboard">Ссылка в буфере</button>
+  <button class="chip" data-go="analyzing">Анализ</button>
+  <button class="chip on" data-go="ready">Варианты</button>
+  <button class="chip" data-go="downloading">Загрузка</button>
+  <button class="chip" data-go="done">Готово</button>
+  <button class="chip" data-go="error">Ошибка</button>
+  <span class="sp"></span>
+  <button class="chip" id="play">▶︎ Проиграть весь путь</button>
+  <button class="chip" id="theme">Светлая тема</button>
+</div>
+
+<div class="split">
+  <div class="stage">
+    <div class="widget grain" id="w" data-state="ready">
+
+      <!-- ── титул ── -->
+      <div class="tbar">
+        <span class="mark"><i></i>YTVD</span>
+        <span class="sp"></span>
+        <button class="ib on" id="bPin" title="Поверх всех окон"></button>
+        <button class="ib" id="bHist" title="История ⌘Y"></button>
+        <button class="ib" id="bSet" title="Настройки ⌘,"></button>
+        <button class="ib" id="bClose" title="Скрыть ⎋"></button>
+      </div>
+
+      <!-- ── ссылка ── -->
+      <div class="url">
+        <span id="uIcon"></span>
+        <input id="input" placeholder="Вставьте ссылку — анализ начнётся сам" spellcheck="false">
+        <span class="kbd" id="uRight">⌘V</span>
+      </div>
+
+      <div class="clip" id="clipStrip">
+        <span id="clipIcon"></span>
+        <b>В буфере: youtu.be/aqz-KE-bpKQ</b>
+        <button class="mini" id="clipBtn">Вставить</button>
+      </div>
+
+      <div class="srcs" id="srcs">
+        <span><i style="background:#d74b3c"></i>YouTube</span>
+        <span><i style="background:#3b8fd1"></i>Vimeo</span>
+        <span><i style="background:#8b6cc7"></i>Rutube</span>
+        <span><i style="background:#4a7fd4"></i>VK Видео</span>
+      </div>
+
+      <!-- ── превью + мета ── -->
+      <div class="card" id="card">
+        <div class="prev" id="prev">
+          <div class="thumb grain"><div class="film" id="filmIcon"></div></div>
+          <span class="tag src" id="srcTag">YouTube</span>
+          <span class="tag dur">10:32</span>
+          <div class="ovl">
+            <button id="jpgBtn" title="Сохранить обложку в JPEG"></button>
+            <button id="bigBtn" title="Крупное превью"></button>
+          </div>
+        </div>
+        <div class="meta" id="metaBox">
+          <h1 id="mTitle">Big Buck Bunny — открытый анимационный фильм студии Blender</h1>
+          <p><span id="mChan">Blender Foundation</span><i></i><span>4,2 млн</span><i></i><span>2 года назад</span></p>
+        </div>
+      </div>
+
+      <!-- ── линейка + дорожки ── -->
+      <div class="ruler" id="ruler">
+        <div class="h">Размер</div>
+        <div class="l" id="rulerLane"></div>
+      </div>
+
+      <div class="tracks" id="tracks"></div>
+
+      <div class="strip err" id="errStrip" style="display:none">
+        <span id="errIcon"></span>
+        <span><b>Видео недоступно</b> — ролик заблокирован в вашем регионе.</span>
+        <span class="sp"></span>
+        <button class="mini" data-go="analyzing">Повторить</button>
+      </div>
+
+      <!-- ── подвал ── -->
+      <div class="foot" id="foot">
+        <div class="gorow">
+          <div class="dest" id="dest" title="~/Movies/YTVD — сменить папку">
+            <span id="destIcon"></span>
+            <span class="p">YTVD</span>
+            <span class="cvr" id="destCvr"></span>
+          </div>
+          <div class="gorow" id="goRow" style="flex:1"></div>
+        </div>
+      </div>
+
+      <div class="hint" id="hintBar">
+        <span><b>⌘V</b> вставить</span><span><b>↑↓</b> выбрать</span><span><b>⏎</b> скачать</span><span><b>⌘,</b> настройки</span><span><b>⎋</b> скрыть</span>
+      </div>
+
+      <!-- ── настройки ── -->
+      <div class="panel" id="pSet">
+        <div class="phead"><span>Настройки</span><span class="sp"></span><button class="ib" data-close="pSet" id="setClose"></button></div>
+        <div class="pbody">
+          <div class="set"><div>Папка сохранения<small>Movies / YTVD</small></div><button class="mini" id="pickIcon">Обзор…</button></div>
+          <div class="set"><div>Качество по умолчанию</div>
+            <div class="seg" data-seg="q"><button>720p</button><button class="on">1080p</button><button>2K</button><button>4K</button><button>Макс.</button></div>
+          </div>
+          <div class="set"><div>Всегда H.264 + AAC<small>Совместимо с Telegram, QuickTime, iPhone</small></div><div class="tg on" data-tg></div></div>
+          <div class="set"><div>Анализировать ссылку из буфера<small>Как только она там появится</small></div><div class="tg on" data-tg></div></div>
+          <div class="set"><div>Скачивать сразу после анализа<small>Без подтверждения, в качестве по умолчанию</small></div><div class="tg" data-tg></div></div>
+          <div class="set"><div>Сохранять обложку рядом<small>{имя}.jpg</small></div><div class="tg" data-tg></div></div>
+          <div class="set"><div>Поверх всех окон</div><div class="tg on" data-tg></div></div>
+          <div class="set"><div>Запускать при входе в систему</div><div class="tg" data-tg></div></div>
+          <div class="set"><div>Шаблон имени файла</div><input class="fld" value="{title} [{quality}]"></div>
+          <div class="set"><div>Ограничить размер файла<small>Подберёт качество под лимит</small></div><input class="fld" style="width:74px" value="50 МБ"></div>
+          <div class="set"><div>Движок<small>yt-dlp 2025.04.30 · ffmpeg 7.1.1</small></div><button class="mini">Обновить</button></div>
+        </div>
+        <div class="pfoot"><span>YTVD 1.0 · Apple Silicon</span><span class="sp"></span>
+          <button class="mini">Сбросить настройки</button></div>
+      </div>
+
+      <!-- ── история ── -->
+      <div class="panel" id="pHist">
+        <div class="phead"><span>История</span><span class="sp"></span><button class="ib" data-close="pHist" id="histClose"></button></div>
+        <div class="pbody" id="histBody"></div>
+        <div class="pfoot"><span>8 файлов · 2,4 ГБ</span><span class="sp"></span>
+          <button class="mini">Открыть папку</button><button class="mini">Очистить</button></div>
+      </div>
+
+    </div>
+  </div>
+
+  <aside class="notes">
+    <h2>Что предлагаю</h2>
+
+    <h3>Главная идея: варианты как дорожки таймлайна</h3>
+    <ul>
+      <li><b>Длина плашки = вес файла.</b> Видно за полсекунды, чем 4K отличается от 1080p — без чтения цифр. Шкала корневая (√), чтобы мелкие файлы не схлопывались в точку; сверху линейка с делениями.</li>
+      <li><b>Цвет = что получишь.</b> Один взгляд — и понятно, где видео, где звук, где картинка.</li>
+      <li><b>Чеврон раскрывает детали</b> — кодек, битрейт, к/с, itag. Новичку не мешает, опытному всё доступно.</li>
+    </ul>
+    <div class="legend">
+      <span><i style="background:#3b8fd1"></i>Видео + звук (MP4/H.264)</span>
+      <span><i style="background:#e08b34"></i>Экономный кодек (VP9/AV1)</span>
+      <span><i style="background:#d74b3c"></i>Только звук</span>
+      <span><i style="background:#6d7a86"></i>Обложка JPEG</span>
+    </div>
+
+    <h3>Путь в один жест</h3>
+    <ul>
+      <li class="o"><b>Скопировал ссылку — виджет уже знает.</b> Появляется полоска «В буфере…», клик или ⌘V — и пошёл анализ. В настройках можно включить полный автомат: вставилось → скачалось.</li>
+      <li class="o"><b>Обложка скачивается отдельно</b> — кнопка прямо на превью или строкой в списке, JPEG в исходном разрешении.</li>
+      <li class="o"><b>Клавиатура целиком:</b> ⌘V, ↑↓, ⏎, ⌘, , ⎋. Мышь не обязательна.</li>
+    </ul>
+
+    <h3>Как виджет</h3>
+    <ul>
+      <li class="r"><b>Окно без системной рамки</b>, 400 px, скруглённое, тащится за любую точку шапки, живёт поверх окон (переключатель в шапке).</li>
+      <li class="r"><b>Иконка в меню-баре</b> и глобальный хоткей (⌥⌘D) — показать/спрятать. Плюс запуск при входе в систему.</li>
+      <li class="r"><b>Очередь.</b> Вставили вторую ссылку во время загрузки — она встаёт в очередь отдельной группой, ничего не прерывается.</li>
+    </ul>
+
+    <h3>Технически</h3>
+    <ul>
+      <li class="s"><b>Нативный SwiftUI</b> под Apple Silicon: запуск ~0,2 с, в памяти ~40 МБ. Никакого Electron.</li>
+      <li class="s"><b>yt-dlp + ffmpeg внутри бандла</b> — YouTube, Vimeo, Rutube, VK Видео. Кнопка обновления движка, чтобы площадки не ломали загрузку.</li>
+      <li class="s"><b>Тёмная и светлая</b> следом за системой (переключатель сверху — посмотреть обе).</li>
+    </ul>
+  </aside>
+</div>
+
+<script>
+const ICONS = __ICONS__;
+const SW = 1.9;
+function svg(name, cls){
+  const body = (ICONS[name] || "").replaceAll("VAR_SW", SW);
+  return `<svg viewBox="0 0 24 24" fill="none" class="${cls||""}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+}
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+/* ── статичные иконки ── */
+$("#bPin").innerHTML   = svg("PinAlt");
+$("#bHist").innerHTML  = svg("History");
+$("#bSet").innerHTML   = svg("Settings");
+$("#bClose").innerHTML = svg("Close");
+$("#setClose").innerHTML = svg("Close");
+$("#histClose").innerHTML = svg("Close");
+$("#uIcon").innerHTML  = svg("LinkAlt");
+$("#clipIcon").innerHTML = svg("ClipboardCheck");
+$("#filmIcon").innerHTML = svg("FilmSlate");
+$("#jpgBtn").innerHTML   = svg("Image") + "JPG";
+$("#bigBtn").innerHTML   = svg("Expand");
+$("#destIcon").innerHTML = svg("FolderDownload");
+$("#destCvr").innerHTML  = svg("ChevronRight");
+$("#errIcon").innerHTML  = svg("WarningTriangle");
+
+/* ── данные вариантов ── */
+const OPT = [
+  {g:"video", id:"v2160", nm:"2160p", sub:"4K", mb:1430, c:"blue",  pill:"4K",
+   det:"MP4 · avc1 · 30 к/с · 18,2 Мбит/с · itag 315+140", ok:"Играет везде, но тяжёлый"},
+  {g:"video", id:"v1440", nm:"1440p", sub:"2K", mb:764,  c:"blue",
+   det:"MP4 · avc1 · 30 к/с · 9,6 Мбит/с · itag 308+140", ok:"Играет везде"},
+  {g:"video", id:"v1080", nm:"1080p", sub:"Full HD", mb:318, c:"blue", pill:"TG",
+   det:"MP4 · avc1.640028 · 30 к/с · 4,1 Мбит/с · itag 137+140", ok:"Годится для Telegram и iPhone"},
+  {g:"video", id:"v720",  nm:"720p",  sub:"HD", mb:167, c:"blue", pill:"TG",
+   det:"MP4 · avc1.4d401f · 30 к/с · 2,1 Мбит/с · itag 136+140", ok:"Годится для Telegram и iPhone"},
+  {g:"video", id:"v480",  nm:"480p",  sub:"", mb:92, c:"blue",
+   det:"MP4 · avc1.4d401e · 30 к/с · 1,1 Мбит/с · itag 135+140", ok:"Экономно по трафику"},
+  {g:"video", id:"a1080", nm:"1080p", sub:"VP9", mb:206, c:"orange",
+   det:"WebM · vp09.00.40.08 · 30 к/с · 2,6 Мбит/с · itag 248+251", ok:"На 35 % легче, но не откроется в QuickTime"},
+  {g:"video", id:"a720",  nm:"720p",  sub:"AV1", mb:88, c:"orange",
+   det:"WebM · av01.0.05M.08 · 30 к/с · 1,1 Мбит/с · itag 395+251", ok:"Самый лёгкий, нужен современный плеер"},
+  {g:"audio", id:"mp3",   nm:"MP3",  sub:"320 кбит/с", mb:24.1, c:"red", pill:"ТЕГИ",
+   det:"Перекодирование из Opus 160 кбит/с · ffmpeg · обложка в тегах", ok:"Совместим со всем"},
+  {g:"audio", id:"m4a",   nm:"M4A",  sub:"оригинал", mb:9.8, c:"red",
+   det:"AAC 128 кбит/с · itag 140 · без перекодирования", ok:"Быстро и без потери качества"},
+  {g:"cover", id:"jpg",   nm:"JPEG",  sub:"1280×720", mb:0.094, c:"steel",
+   det:"JPEG · maxresdefault · 1280×720", ok:"Сохранится рядом с видео"},
+];
+const GRP = {video:"Видео", audio:"Аудио", cover:"Обложка"};
+const CVAR = {blue:"var(--blue)", orange:"var(--orange)", red:"var(--red)", steel:"var(--steel)"};
+
+let sel = "v1080";          // выбранный видео/аудио вариант
+let cover = false;          // обложка отдельным файлом
+let open = {video:1, audio:1, cover:1};
+let openRow = null;         // раскрытые подробности
+let showAlt = false;        // экономные кодеки VP9/AV1
+let state = "ready";
+
+const MAXMB = Math.max(...OPT.map(o => o.mb));
+const scale = mb => Math.sqrt(mb) / Math.sqrt(MAXMB);       // корневая шкала
+const LANE = 400 - 150 - 10;                                 // ширина дорожки, px
+const wOf = mb => Math.max(26, Math.round(scale(mb) * LANE));
+const fmt = mb => mb >= 1024 ? (mb/1024).toFixed(2).replace(".", ",") + " ГБ"
+               : mb >= 10   ? Math.round(mb) + " МБ"
+               : mb >= 1    ? mb.toFixed(1).replace(".", ",") + " МБ"
+               : Math.round(mb*1024) + " КБ";
+
+const plural = (n, forms) => {           // 1 вариант / 2 варианта / 5 вариантов
+  const a = Math.abs(n) % 100, b = a % 10;
+  return `${n} ${a > 10 && a < 20 ? forms[2] : b === 1 ? forms[0] : b > 1 && b < 5 ? forms[1] : forms[2]}`;
+};
+
+/* ── линейка ── */
+function drawRuler(){
+  const ticks = [10, 100, 400, 1200];
+  $("#rulerLane").innerHTML = ticks.map(t => {
+    const x = Math.round(scale(t) * LANE) + 5;   // + отступ дорожки
+    const flip = x > LANE - 48;          // у правого края — подпись влево от риски
+    return `<div class="t" style="left:${x}px">
+      <span style="${flip ? "left:auto; right:4px; text-align:right" : ""}">${fmt(t)}</span></div>`;
+  }).join("");
+}
+
+/* ── список дорожек ── */
+function drawTracks(){
+  const t = $("#tracks");
+
+  if (state === "analyzing"){
+    t.innerHTML = `<div class="grp" data-open="1"><div class="h">${svg("ChevronDown","cv")}Анализ ссылки</div><div class="n">yt-dlp</div></div>` +
+      [.85,.55,.68,.34,.22,.44].map((k,i) =>
+        `<div class="row" style="cursor:default"><div class="h">${svg("ChevronRight","cv")}<span class="sw" style="background:var(--bg3)"></span>
+         <span class="sk" style="width:${40+k*46}px; height:9px"></span></div>
+         <div class="lane"><div class="sk" style="width:${Math.round(k*LANE)}px; animation-delay:${i*.09}s"></div></div></div>`).join("");
+    return;
+  }
+  if (state === "idle" || state === "clipboard" || state === "error"){ t.innerHTML = ""; return; }
+
+  if (state === "downloading" || state === "done"){
+    const o = OPT.find(x => x.id === sel);
+    const done = state === "done";
+    t.innerHTML =
+      `<div class="grp" data-open="1"><div class="h">${svg("ChevronDown","cv")}${done ? "Загружено" : "Загрузка"}</div>
+        <div class="n">${done ? "1 из 1" : "1 из 2"}</div></div>
+       <div class="row sel" style="cursor:default">
+         <div class="h">${svg("ChevronRight","cv")}<span class="sw" style="background:${CVAR[o.c]}"></span>
+           <span class="name">${o.nm}<em>${o.sub}</em></span></div>
+         <div class="lane"><div class="prog" style="--c:${done ? "var(--green)" : CVAR[o.c]}">
+           <div class="fill" id="fill" style="width:${done?100:0}%"></div>
+           <div class="pct" id="pct">${done ? fmt(o.mb) : "0 %"}</div></div></div>
+       </div>` +
+      (done
+        ? `<div class="strip ok">${svg("CheckDouble")}
+             <span>Сохранено в <b>~/Movies/YTVD</b> — за 26 с</span></div>`
+        : `<div class="stat"><div class="h" id="phase">подключение…</div>
+             <div class="v" id="speed">—</div></div>`) +
+      (done ? "" :
+       `<div class="row" style="cursor:default; opacity:.62">
+          <div class="h">${svg("ChevronRight","cv")}<span class="sw" style="background:var(--orange)"></span>
+            <span class="name">Vimeo<em>2160p</em></span></div>
+          <div class="lane"><div class="blk" style="--c:var(--bg3); width:118px; color:var(--dim); text-shadow:none">в очереди</div></div>
+        </div>`);
+    return;
+  }
+
+  /* обычный список вариантов */
+  let html = "";
+  for (const g of ["video","audio","cover"]){
+    let items = OPT.filter(o => o.g === g);
+    const alt = items.filter(o => o.c === "orange");
+    if (g === "video" && !showAlt) items = items.filter(o => o.c !== "orange");
+    const cnt = g === "cover" ? plural(items.length, ["файл","файла","файлов"])
+                              : plural(items.length, ["вариант","варианта","вариантов"]);
+    html += `<div class="grp" data-grp="${g}" data-open="${open[g]}">
+        <div class="h">${svg("ChevronDown","cv")}${GRP[g]}</div>
+        <div class="n">${cnt}</div></div>`;
+    if (!open[g]) continue;
+    for (const o of items){
+      const on = g === "cover" ? cover : sel === o.id;
+      const w = wOf(o.mb);
+      const size = fmt(o.mb);
+      const pillIn = o.pill && w >= 112;                  // бейдж влезает в плашку
+      const sizeIn = w >= (pillIn ? 112 : 76);            // и цифра тоже
+      const out = [o.pill && !pillIn ? `<span class="pill">${o.pill}</span>` : "",
+                   sizeIn ? "" : size].filter(Boolean).join("");
+      html += `<div class="row ${on?"sel":""}" data-id="${o.id}" data-open="${openRow===o.id?1:0}">
+        <div class="h">${svg("ChevronRight","cv")}<span class="sw" style="background:${CVAR[o.c]}"></span>
+          <span class="name">${o.nm}${o.sub?`<em>${o.sub}</em>`:""}</span></div>
+        <div class="lane">
+          <div class="blk grain" style="--c:${CVAR[o.c]}; width:${w}px">
+            ${svg("Check","ck")}${pillIn?`<span class="pill">${o.pill}</span>`:""}${sizeIn?size:""}
+          </div>${out?`<span class="out">${out}</span>`:""}
+        </div>
+        <div class="det">${o.det}<div class="note">${svg("Sparkles")}${o.ok}</div></div>
+      </div>`;
+    }
+    if (g === "video" && !showAlt && alt.length)
+      html += `<div class="more" data-more="1"><div class="h"></div>
+        <div class="v">${svg("Add")}ещё ${alt.length}: VP9 / AV1 — легче на треть</div></div>`;
+  }
+  t.innerHTML = html;
+}
+
+/* ── подвал ── */
+function drawFoot(){
+  const r = $("#goRow");
+  if (state === "downloading"){
+    r.innerHTML = `<button class="go ghost" id="cancel">${svg("Close")}<span>Отменить</span></button>`;
+    $("#cancel").onclick = () => go("ready");
+    return;
+  }
+  if (state === "done"){
+    r.innerHTML = `<button class="go ghost" id="finder">${svg("Folder")}<span>В Finder</span></button>
+                   <button class="go" id="again">${svg("Play")}<span>Открыть</span></button>`;
+    $("#again").onclick = () => go("ready");
+    $("#finder").onclick = () => go("ready");
+    return;
+  }
+  if (state === "idle" || state === "clipboard" || state === "analyzing" || state === "error"){
+    const busy = state === "analyzing";
+    r.innerHTML = `<button class="go" disabled><span>${busy ? "Анализирую…" : "Вставьте ссылку"}</span></button>`;
+    return;
+  }
+  const o = OPT.find(x => x.id === sel);
+  const total = o.mb + (cover ? OPT.find(x=>x.id==="jpg").mb : 0);
+  r.innerHTML = `<button class="go" id="dl">${svg("Download")}<span>Скачать ${o.nm} · ${fmt(total)}${cover?" + JPG":""}</span></button>`;
+  $("#dl").onclick = () => go("downloading");
+}
+
+/* ── состояния ── */
+function apply(){
+  const w = $("#w");
+  w.dataset.state = state;
+  const show = (el, v) => $(el).style.display = v ? "" : "none";
+  const s = state;
+
+  $("#clipStrip").style.display = s === "clipboard" ? "flex" : "none";
+  $("#srcs").style.display = (s === "idle" || s === "clipboard") ? "flex" : "none";
+  $("#card").style.display = (s === "idle" || s === "clipboard" || s === "error") ? "none"
+                           : ($("#card").classList.contains("big") ? "block" : "grid");
+  show("#ruler", s === "ready");
+  $("#errStrip").style.display = s === "error" ? "flex" : "none";
+
+  $("#input").value =
+    s === "idle" || s === "clipboard" ? "" : "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
+  $("#uRight").outerHTML = s === "analyzing"
+    ? `<span class="spin" id="uRight"></span>`
+    : `<span class="kbd" id="uRight">${s === "idle" || s === "clipboard" ? "⌘V" : "⌫"}</span>`;
+
+  $("#metaBox").innerHTML = s === "analyzing"
+    ? `<div class="sk" style="width:96%"></div><div class="sk" style="width:64%"></div>
+       <div class="sk" style="width:44%; height:8px; margin-top:7px"></div>`
+    : `<h1 id="mTitle">Big Buck Bunny — открытый анимационный фильм студии Blender</h1>
+       <p><span>Blender Foundation</span></p>
+       <p style="margin-top:2px"><span>4,2 млн просмотров</span><i></i><span>2 года назад</span></p>`;
+
+  $$(".bar .chip[data-go]").forEach(c => c.classList.toggle("on", c.dataset.go === s));
+  drawTracks(); drawFoot();
+}
+
+let timer = null;
+function go(s){
+  clearInterval(timer); timer = null;
+  state = s; apply();
+  if (s === "analyzing") timer = setTimeout(() => go("ready"), 1300);
+  if (s === "downloading") runProgress();
+}
+
+function runProgress(){
+  let p = 0;
+  const o = OPT.find(x => x.id === sel);
+  const phases = [[0,"видео · 1080p"],[46,"аудио · AAC 128"],[68,"склейка ffmpeg"],[92,"перенос в папку"]];
+  timer = setInterval(() => {
+    p = Math.min(100, p + (p < 45 ? 3.1 : p < 68 ? 5.4 : 2.4));
+    const fill = $("#fill"), pct = $("#pct"), ph = $("#phase"), sp = $("#speed");
+    if (!fill) return clearInterval(timer);
+    fill.style.width = p + "%";
+    pct.textContent = Math.round(p) + " %";
+    const cur = phases.filter(x => p >= x[0]).pop();
+    ph.textContent = cur[1];
+    const left = Math.max(0, Math.round((100 - p) * .28));
+    sp.innerHTML = `${(9 + Math.sin(p/7)*3.4).toFixed(1).replace(".",",")} МБ/с<i></i>0:${String(left).padStart(2,"0")}<i></i>${Math.round(o.mb*p/100)} / ${fmt(o.mb)}`;
+    if (p >= 100){ clearInterval(timer); setTimeout(() => go("done"), 420); }
+  }, 110);
+}
+
+/* ── события ── */
+$("#tracks").addEventListener("click", e => {
+  if (e.target.closest(".more")){ showAlt = true; drawTracks(); return; }
+  const grp = e.target.closest(".grp");
+  if (grp){ open[grp.dataset.grp] = open[grp.dataset.grp] ? 0 : 1; drawTracks(); return; }
+  const row = e.target.closest(".row"); if (!row || !row.dataset.id) return;
+  if (e.target.closest(".cv")){ openRow = openRow === row.dataset.id ? null : row.dataset.id; drawTracks(); return; }
+  if (row.dataset.id === "jpg") cover = !cover; else sel = row.dataset.id;
+  drawTracks(); drawFoot();
+});
+
+$$(".bar .chip[data-go], .mini[data-go]").forEach(c => c.onclick = () => go(c.dataset.go));
+$("#clipBtn").onclick = () => go("analyzing");
+$("#input").addEventListener("keydown", e => { if (e.key === "Enter") go("analyzing"); });
+$("#input").addEventListener("paste", () => setTimeout(() => go("analyzing"), 60));
+$("#jpgBtn").onclick = e => {
+  const b = e.currentTarget; b.classList.add("saved");
+  b.innerHTML = svg("Check") + "Сохранено";
+  setTimeout(() => { b.classList.remove("saved"); b.innerHTML = svg("Image") + "JPG"; }, 1800);
+};
+$("#bigBtn").onclick = e => {
+  const big = $("#card").classList.toggle("big");
+  e.currentTarget.innerHTML = svg(big ? "Minimize" : "Expand");
+  apply();                                   // раскладку решает только apply()
+};
+$("#bPin").onclick = e => e.currentTarget.classList.toggle("on");
+$("#bSet").onclick = () => $("#pSet").classList.add("open");
+$("#bHist").onclick = () => $("#pHist").classList.add("open");
+$$("[data-close]").forEach(b => b.onclick = () => $("#" + b.dataset.close).classList.remove("open"));
+$$("[data-tg]").forEach(t => t.onclick = () => t.classList.toggle("on"));
+$$("[data-seg] button").forEach(b => b.onclick = () => {
+  b.parentElement.querySelectorAll("button").forEach(x => x.classList.remove("on")); b.classList.add("on");
+});
+$("#theme").onclick = e => {
+  const on = document.body.classList.toggle("light");
+  e.currentTarget.textContent = on ? "Тёмная тема" : "Светлая тема";
+};
+$("#bClose").onclick = () => go("idle");
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape"){ $$(".panel").forEach(p => p.classList.remove("open")); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key === ","){ e.preventDefault(); $("#pSet").classList.add("open"); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "v" && state !== "ready"){ go("analyzing"); return; }
+  if (state !== "ready") return;
+  const list = OPT.filter(o => o.g !== "cover" && open[o.g]).map(o => o.id);
+  const i = list.indexOf(sel);
+  if (e.key === "ArrowDown"){ e.preventDefault(); sel = list[Math.min(list.length-1, i+1)]; drawTracks(); drawFoot(); }
+  if (e.key === "ArrowUp"){ e.preventDefault(); sel = list[Math.max(0, i-1)]; drawTracks(); drawFoot(); }
+  if (e.key === "Enter"){ e.preventDefault(); go("downloading"); }
+});
+
+$("#play").onclick = () => {
+  const seq = [["idle",0],["clipboard",900],["analyzing",1400],["ready",1500],["downloading",1800]];
+  seq.forEach(([s, d]) => setTimeout(() => go(s), d));
+};
+
+/* ── история ── */
+$("#histBody").innerHTML = [
+  ["Как работает ffmpeg за 12 минут", "1080p · MP4", "318 МБ", "10 мин назад"],
+  ["Lo-fi beats для работы", "MP3 · 320", "24 МБ", "вчера"],
+  ["Обзор Mac Studio M4 Ultra", "2160p · MP4", "1,43 ГБ", "вчера"],
+  ["Дока по Rutube API", "720p · MP4", "167 МБ", "3 дня назад"],
+  ["Концерт в Зарядье", "M4A · оригинал", "58 МБ", "неделю назад"],
+  ["Разбор SwiftUI Observable", "1440p · MP4", "764 МБ", "неделю назад"],
+  ["Подкаст: сборка на Apple Silicon", "MP3 · 320", "86 МБ", "2 недели назад"],
+  ["Тайм-лапс сборки стенда", "2160p · MP4", "1,1 ГБ", "2 недели назад"],
+].map(([t, q, z, w]) => `<div class="hrow"><div class="t grain"></div>
+   <div class="nm">${t}<small>${q} · ${w}</small></div><div class="z">${z}</div></div>`).join("");
+
+/* ── зерно ── */
+const noise = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='110' height='110' filter='url(%23n)'/%3E%3C/svg%3E")`;
+document.documentElement.style.setProperty("--noise", noise);
+
+drawRuler(); apply();
+</script>
