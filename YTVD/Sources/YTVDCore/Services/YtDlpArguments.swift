@@ -35,9 +35,17 @@ public enum YtDlpArguments {
         "--fragment-retries", "10",
     ]
 
+    /// Где взять исполнитель JavaScript. Приложение из Finder получает урезанный PATH,
+    /// в котором Homebrew нет, поэтому путь указываем явно — иначе YouTube отдаёт
+    /// вместо форматов одни раскадровки.
+    public static func jsRuntime(_ argument: String?) -> [String] {
+        argument.map { ["--js-runtimes", $0] } ?? []
+    }
+
     /// Получение сведений о ролике.
-    public static func metadata(url: String, network: NetworkOptions = .none) -> [String] {
-        common + network.arguments + ["-J", "--no-progress", url]
+    public static func metadata(url: String, network: NetworkOptions = .none,
+                                jsRuntime runtime: String? = nil) -> [String] {
+        common + network.arguments + jsRuntime(runtime) + ["-J", "--no-progress", url]
     }
 
     /// Скачивание по выбранному варианту.
@@ -46,8 +54,9 @@ public enum YtDlpArguments {
     ///   - ffmpegDirectory: каталог с ffmpeg, если он найден.
     public static func download(plan: DownloadPlan, url: String, basePath: String,
                                 ffmpegDirectory: String?,
-                                network: NetworkOptions = .none) -> [String] {
-        var args = common + network.arguments
+                                network: NetworkOptions = .none,
+                                jsRuntime runtime: String? = nil) -> [String] {
+        var args = common + network.arguments + jsRuntime(runtime)
         args += ["--newline", "--progress", "--progress-template", "download:" + YtDlpOutput.progressTemplate]
         args += ["--concurrent-fragments", "4"]
         if let ffmpegDirectory { args += ["--ffmpeg-location", ffmpegDirectory] }

@@ -64,7 +64,8 @@ public final class MediaService: @unchecked Sendable {
         var stdout = ""
         var stderr = ""
         let status = try await ProcessRunner.stream(
-            ytdlp, YtDlpArguments.metadata(url: url.absoluteString, network: network),
+            ytdlp, YtDlpArguments.metadata(url: url.absoluteString, network: network,
+                                    jsRuntime: toolchain.jsRuntimeArgument),
             started: { [weak self] handle in self?.setCurrent(handle) },
             onStdout: { stdout += $0 },
             onStderr: { stderr += $0 + "\n" })
@@ -124,7 +125,8 @@ public final class MediaService: @unchecked Sendable {
         let args = YtDlpArguments.download(
             plan: plan, url: url.absoluteString, basePath: basePath,
             ffmpegDirectory: toolchain.ffmpeg?.deletingLastPathComponent().path,
-            network: network)
+            network: network,
+            jsRuntime: toolchain.jsRuntimeArgument)
 
         let tracker = PhaseTracker(plan: plan)
         var lastError = ""

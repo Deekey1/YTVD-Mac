@@ -278,3 +278,36 @@ final class FileNamingTests: XCTestCase {
         XCTAssertEqual(name, "Новый")
     }
 }
+
+/// Приложение из Finder получает урезанный PATH без Homebrew. yt-dlp ищет Deno именно
+/// в PATH, поэтому путь к нему надо передавать явно — иначе YouTube отдаёт раскадровки.
+final class JSRuntimeArgumentTests: XCTestCase {
+
+    func testToolchainBuildsRuntimeArgument() {
+        let chain = Toolchain(jsRuntime: URL(fileURLWithPath: "/opt/homebrew/bin/deno"))
+        XCTAssertEqual(chain.jsRuntimeArgument, "deno:/opt/homebrew/bin/deno")
+        XCTAssertNil(Toolchain().jsRuntimeArgument)
+    }
+
+    func testBothCommandsCarryTheRuntime() {
+        let runtime = "deno:/opt/homebrew/bin/deno"
+
+        let info = YtDlpArguments.metadata(url: "u", jsRuntime: runtime)
+        XCTAssertEqual(index(of: "--js-runtimes", in: info).map { info[$0 + 1] }, runtime)
+
+        let plan = DownloadPlan(mode: .video, selector: "137+140", container: "mp4")
+        let download = YtDlpArguments.download(plan: plan, url: "u", basePath: "/tmp/a",
+                                               ffmpegDirectory: "/opt/homebrew/bin",
+                                               jsRuntime: runtime)
+        XCTAssertEqual(index(of: "--js-runtimes", in: download).map { download[$0 + 1] }, runtime)
+    }
+
+    func testWithoutRuntimeNoFlagIsAdded() {
+        XCTAssertFalse(YtDlpArguments.metadata(url: "u").contains("--js-runtimes"))
+        XCTAssertTrue(YtDlpArguments.jsRuntime(nil).isEmpty)
+    }
+
+    private func index(of flag: String, in args: [String]) -> Int? {
+        args.firstIndex(of: flag).flatMap { $0 + 1 < args.count ? $0 : nil }
+    }
+}

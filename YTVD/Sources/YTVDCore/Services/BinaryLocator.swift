@@ -78,6 +78,13 @@ public struct Toolchain: Sendable, Equatable {
     /// Без исполнителя JS YouTube не отдаёт ни одного формата.
     public var canSolveYouTube: Bool { jsRuntime != nil }
 
+    /// Указание для yt-dlp вида `deno:/opt/homebrew/bin/deno`.
+    /// Полагаться на PATH нельзя: приложение, запущенное из Finder, получает урезанный.
+    public var jsRuntimeArgument: String? {
+        guard let jsRuntime else { return nil }
+        return "\(jsRuntime.lastPathComponent):\(jsRuntime.path)"
+    }
+
     public var summary: String {
         var parts: [String] = []
         parts.append(ytdlpVersion.map { "yt-dlp \($0)" } ?? "yt-dlp не найден")
