@@ -200,6 +200,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func applyFloatingLevel() {
         window.level = model.settings.floatOnTop ? .floating : .normal
+        applyAppearance()
+    }
+
+    /// Оформление: «как в системе» или принудительно светлое/тёмное.
+    private func applyAppearance() {
+        switch model.settings.appearance {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark":  NSApp.appearance = NSAppearance(named: .darkAqua)
+        default:      NSApp.appearance = nil
+        }
     }
 
     private func showWindow() {

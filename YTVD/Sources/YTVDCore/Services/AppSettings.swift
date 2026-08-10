@@ -17,7 +17,7 @@ public final class AppSettings: ObservableObject {
         static let template = "fileNameTemplate"
         static let limitSize = "limitFileSize"
         static let maxSizeMB = "maxFileSizeMB"
-        static let showHints = "showKeyboardHints"
+        static let appearance = "appearance"
         static let cookiesBrowser = "cookiesFromBrowser"
         static let proxy = "proxyURL"
     }
@@ -37,7 +37,7 @@ public final class AppSettings: ObservableObject {
             Key.template: "{title} [{quality}]",
             Key.limitSize: false,
             Key.maxSizeMB: 50,
-            Key.showHints: true,
+            Key.appearance: "system",
             Key.cookiesBrowser: "",
             Key.proxy: "",
         ])
@@ -52,7 +52,7 @@ public final class AppSettings: ObservableObject {
         self.fileNameTemplate = defaults.string(forKey: Key.template) ?? "{title} [{quality}]"
         self.limitFileSize = defaults.bool(forKey: Key.limitSize)
         self.maxFileSizeMB = defaults.integer(forKey: Key.maxSizeMB)
-        self.showKeyboardHints = defaults.bool(forKey: Key.showHints)
+        self.appearance = defaults.string(forKey: Key.appearance) ?? "system"
         self.cookiesFromBrowser = defaults.string(forKey: Key.cookiesBrowser) ?? ""
         self.proxyURL = defaults.string(forKey: Key.proxy) ?? ""
     }
@@ -68,7 +68,8 @@ public final class AppSettings: ObservableObject {
     @Published public var fileNameTemplate: String { didSet { defaults.set(fileNameTemplate, forKey: Key.template) } }
     @Published public var limitFileSize: Bool { didSet { defaults.set(limitFileSize, forKey: Key.limitSize) } }
     @Published public var maxFileSizeMB: Int { didSet { defaults.set(maxFileSizeMB, forKey: Key.maxSizeMB) } }
-    @Published public var showKeyboardHints: Bool { didSet { defaults.set(showKeyboardHints, forKey: Key.showHints) } }
+    /// «system», «light» или «dark».
+    @Published public var appearance: String { didSet { defaults.set(appearance, forKey: Key.appearance) } }
     /// Пусто — не использовать. Иначе safari, chrome, firefox…
     @Published public var cookiesFromBrowser: String { didSet { defaults.set(cookiesFromBrowser, forKey: Key.cookiesBrowser) } }
     @Published public var proxyURL: String { didSet { defaults.set(proxyURL, forKey: Key.proxy) } }
@@ -115,7 +116,7 @@ public final class AppSettings: ObservableObject {
         fileNameTemplate = "{title} [{quality}]"
         limitFileSize = false
         maxFileSizeMB = 50
-        showKeyboardHints = true
+        appearance = "system"
         cookiesFromBrowser = ""
         proxyURL = ""
     }

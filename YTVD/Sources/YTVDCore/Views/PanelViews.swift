@@ -158,6 +158,11 @@ private struct Segmented: View {
 
 struct SettingsPanel: View {
     /// Браузеры, из которых yt-dlp умеет брать cookies.
+    /// Оформление окна: следом за системой либо принудительно.
+    static let themes: [(String, String)] = [
+        ("как в системе", "system"), ("светлое", "light"), ("тёмное", "dark"),
+    ]
+
     static let browsers: [(String, String)] = [
         ("нет", ""), ("Chrome", "chrome"), ("Safari", "safari"), ("Firefox", "firefox"),
     ]
@@ -214,9 +219,11 @@ struct SettingsPanel: View {
                     LoginItem.setEnabled(value)
                 }))
             }
-            SettingRow(title: "Показывать подсказки клавиш") {
-                BlockToggle(isOn: Binding(get: { settings.showKeyboardHints },
-                                          set: { settings.showKeyboardHints = $0 }))
+            SettingRow(title: "Оформление") {
+                Segmented(value: Binding(
+                    get: { Self.themes.firstIndex { $0.1 == settings.appearance } ?? 0 },
+                    set: { settings.appearance = Self.themes[$0].1 }),
+                          options: Self.themes.enumerated().map { ($0.element.0, $0.offset) })
             }
             SettingRow(title: "Шаблон имени файла", note: "{title} {quality} {source} {id} {date}") {
                 PanelField(text: Binding(get: { settings.fileNameTemplate },
@@ -253,8 +260,14 @@ struct SettingsPanel: View {
                     Task { await model.refreshToolchain() }
                 }
             }
+            SettingRow(title: "Версия программы",
+                       note: model.appUpdateNote ?? "YTVD \(AppUpdater.currentVersion)") {
+                MiniButton(title: model.appUpdating ? "Обновляю…" : "Проверить обновления") {
+                    model.checkForAppUpdate()
+                }
+            }
         } footer: {
-            Text("YTVD 1.0 · Apple Silicon")
+            Text("YTVD \(AppUpdater.currentVersion)")
                 .font(.system(size: 10.5)).foregroundStyle(Theme.muted)
             Spacer()
             MiniButton(title: "Сбросить") { settings.reset() }

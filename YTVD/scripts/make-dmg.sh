@@ -5,11 +5,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
-VERSION="${1:-1.0}"
+VERSION="${1:-1.2}"
 STAGE="$ROOT/.build/dmg"
 DMG="$ROOT/dist/YTVD-$VERSION.dmg"
 
-"$ROOT/scripts/make-app.sh" --with-tools >/dev/null
+YTVD_VERSION="$VERSION" "$ROOT/scripts/make-app.sh" --with-tools >/dev/null
 
 echo "▸ Готовлю содержимое образа"
 rm -rf "$STAGE"

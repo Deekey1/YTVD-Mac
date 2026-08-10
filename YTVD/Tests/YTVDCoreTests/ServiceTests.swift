@@ -279,3 +279,25 @@ final class EngineUpdaterTests: XCTestCase {
                        "скачанное обновление важнее и встроенного, и системного")
     }
 }
+
+/// Обновление самой программы: сравнение версий и разбор ответа GitHub.
+final class AppUpdaterTests: XCTestCase {
+
+    func testTagComparison() {
+        XCTAssertTrue(EngineUpdater.isNewer("1.2", than: "1.1"))
+        XCTAssertTrue(EngineUpdater.isNewer("1.10", than: "1.9"), "1.10 новее 1.9, а не наоборот")
+        XCTAssertTrue(EngineUpdater.isNewer("2.0", than: "1.9.9"))
+        XCTAssertFalse(EngineUpdater.isNewer("1.1", than: "1.1"))
+        XCTAssertFalse(EngineUpdater.isNewer("1.0.2", than: "1.1"))
+    }
+
+    func testCurrentVersionIsReadable() {
+        // Вне бандла Info.plist нет — тогда версия считается нулевой и любая новее.
+        XCTAssertFalse(AppUpdater.currentVersion.isEmpty)
+        XCTAssertTrue(EngineUpdater.isNewer("1.2", than: "0"))
+    }
+
+    func testRepositoryPointsAtTheRightProject() {
+        XCTAssertEqual(AppUpdater.repository, "Deekey1/YTVD-Mac")
+    }
+}

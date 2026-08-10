@@ -341,6 +341,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertTrue(settings.watchClipboard)
         XCTAssertFalse(settings.autoDownload)
         XCTAssertEqual(settings.fileNameTemplate, "{title} [{quality}]")
+        XCTAssertEqual(settings.appearance, "system")
         XCTAssertEqual(settings.directory.lastPathComponent, "YTVD")
     }
 

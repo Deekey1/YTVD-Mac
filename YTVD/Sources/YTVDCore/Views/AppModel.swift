@@ -59,6 +59,10 @@ public final class AppModel: ObservableObject {
     @Published public private(set) var engineUpdate: EngineUpdater.Available?
     @Published public private(set) var engineUpdating = false
     @Published public private(set) var engineNote: String?
+    /// Обновление самой программы. Появляется только после явной проверки.
+    @Published public private(set) var appUpdate: AppUpdater.Available?
+    @Published public private(set) var appUpdating = false
+    @Published public private(set) var appUpdateNote: String?
 
     public let settings: AppSettings
     public let history: HistoryStore
@@ -484,6 +488,47 @@ public final class AppModel: ObservableObject {
                 self?.engineNote = "Готово — попробуйте ещё раз"
             } catch {
                 self?.engineNote = (error as? YTVDError)?.errorDescription
+                    ?? error.localizedDescription
+            }
+        }
+    }
+
+    // MARK: - обновление самой программы
+
+    /// Проверка по кнопке: пользователь спросил — отвечаем, в том числе когда всё свежее.
+    public func checkForAppUpdate() {
+        guard !appUpdating else { return }
+        appUpdating = true
+        appUpdateNote = "Проверяю…"
+        Task { [weak self] in
+            defer { self?.appUpdating = false }
+            do {
+                if let update = try await AppUpdater.check() {
+                    self?.appUpdate = update
+                    self?.appUpdateNote = "Доступна версия \(update.version)"
+                } else {
+                    self?.appUpdate = nil
+                    self?.appUpdateNote = "Установлена последняя версия"
+                }
+            } catch {
+                self?.appUpdateNote = (error as? YTVDError)?.errorDescription
+                    ?? error.localizedDescription
+            }
+        }
+    }
+
+    /// Скачивает и ставит новую версию, затем перезапускается.
+    public func installAppUpdate() {
+        guard let update = appUpdate, !appUpdating else { return }
+        appUpdating = true
+        Task { [weak self] in
+            do {
+                try await AppUpdater.install(update) { note in
+                    Task { @MainActor in self?.appUpdateNote = note }
+                }
+            } catch {
+                self?.appUpdating = false
+                self?.appUpdateNote = (error as? YTVDError)?.errorDescription
                     ?? error.localizedDescription
             }
         }

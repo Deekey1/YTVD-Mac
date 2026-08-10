@@ -55,6 +55,16 @@ public struct RootView: View {
                     Hairline()
                 }
 
+                // Появляется, только когда обновление действительно найдено.
+                if let update = model.appUpdate {
+                    WarningStrip(message: "Вышла новая версия программы — \(update.version).",
+                                 action: model.appUpdating ? "Ставлю…" : "Обновить",
+                                 keepLabel: true) {
+                        model.installAppUpdate()
+                    }
+                    Hairline()
+                }
+
                 if let note = model.engineNote {
                     HStack(spacing: 8) {
                         IconView(.check, size: 14).foregroundStyle(Theme.green)
@@ -91,10 +101,6 @@ public struct RootView: View {
                 }
 
                 Footer(model: model)
-                if model.settings.showKeyboardHints {
-                    Hairline()
-                    HintBar()
-                }
             }
 
             if model.panel == .settings {
@@ -152,7 +158,8 @@ public struct RootView: View {
             if model.stage == .analyzing {
                 ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 16, height: 16)
             } else if !model.urlText.isEmpty {
-                Button { model.reset(); urlFocused = true } label: {
+                // Тот же сброс, что и по нажатию на логотип.
+                Button { model.reset() } label: {
                     IconView(.close, size: 12, lineWidth: 2).foregroundStyle(Theme.muted)
                         .frame(width: 20, height: 20)
                 }
@@ -479,27 +486,6 @@ struct MiniButton: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-    }
-}
-
-private struct HintBar: View {
-    private let hints: [(String, String)] = [
-        ("⌘V", "вставить"), ("↑↓", "выбрать"), ("⏎", "скачать"), ("⌘,", "настройки"), ("⎋", "скрыть"),
-    ]
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ForEach(hints, id: \.0) { key, label in
-                HStack(spacing: 3) {
-                    Text(key).font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.dim)
-                    Text(label).font(.system(size: 10)).foregroundStyle(Theme.muted)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 6)
-        .background(Theme.chrome)
     }
 }
 
