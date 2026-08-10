@@ -36,10 +36,33 @@ public struct RootView: View {
                 // Без ffmpeg доступны только готовые файлы со звуком — предупреждаем сразу,
                 // а не после неудачной попытки скачать.
                 if model.toolchain.isReady, let missing = model.missingTool {
-                    WarningStrip(message: missing.message, action: "Скопировать команду") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(missing.command, forType: .string)
+                    WarningStrip(message: missing.message,
+                                 action: model.engineUpdating ? "Качаю…" : "Скачать",
+                                 keepLabel: true) {
+                        model.installMissingTool()
                     }
+                    Hairline()
+                }
+
+                // Появляется только после сбоя, похожего на устаревший движок.
+                if let update = model.engineUpdate {
+                    WarningStrip(message: "Похоже, движок устарел — площадки его сломали. "
+                                 + "Вышла версия \(update.latest).",
+                                 action: model.engineUpdating ? "Обновляю…" : "Обновить",
+                                 keepLabel: true) {
+                        model.updateEngine()
+                    }
+                    Hairline()
+                }
+
+                if let note = model.engineNote {
+                    HStack(spacing: 8) {
+                        IconView(.check, size: 14).foregroundStyle(Theme.green)
+                        Text(note).font(.system(size: 11.5)).foregroundStyle(Theme.text)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 11).padding(.vertical, 8)
+                    .background(Theme.green.opacity(0.16))
                     Hairline()
                 }
 
@@ -283,6 +306,8 @@ private struct SourcesStrip: View {
 private struct WarningStrip: View {
     let message: String
     let action: String
+    /// Кнопка сообщает о ходе дела сама — подменять её подпись на «Скопировано» не нужно.
+    var keepLabel: Bool = false
     let onAction: () -> Void
 
     @State private var copied = false
@@ -295,8 +320,9 @@ private struct WarningStrip: View {
                 .foregroundStyle(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            MiniButton(title: copied ? "Скопировано" : action) {
+            MiniButton(title: copied && !keepLabel ? "Скопировано" : action) {
                 onAction()
+                guard !keepLabel else { return }
                 withAnimation { copied = true }
                 Task {
                     try? await Task.sleep(nanoseconds: 1_800_000_000)

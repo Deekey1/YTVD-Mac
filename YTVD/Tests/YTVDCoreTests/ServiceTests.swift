@@ -223,3 +223,59 @@ final class JSRuntimeTests: XCTestCase {
         }
     }
 }
+
+/// Обновление движка предлагается только тогда, когда сбой действительно на него похож.
+final class EngineUpdaterTests: XCTestCase {
+
+    func testRecognisesEngineBreakage() {
+        for raw in ["ERROR: Requested format is not available",
+                    "ERROR: Unable to extract player response",
+                    "WARNING: nsig extraction failed",
+                    "Only images are available for download",
+                    "n challenge solving failed",
+                    "Confirm you are on the latest version using yt-dlp -U"] {
+            XCTAssertTrue(YtDlpOutput.looksLikeEngineBreakage(raw), "не распознано: \(raw)")
+        }
+    }
+
+    /// Обновление не поможет: дело в доступе, правах или самой ссылке.
+    func testDoesNotBlameEngineForAccessProblems() {
+        for raw in ["ERROR: Video unavailable",
+                    "ERROR: Private video",
+                    "PrivacyError: We're having a little trouble",
+                    "The web client only works when logged-in",
+                    "Got HTTP Error 403 ... data center IP or VPN/proxy",
+                    "unable to download video data: [Errno 61] Connection refused",
+                    "ERROR: Unsupported URL: https://example.com"] {
+            XCTAssertFalse(YtDlpOutput.looksLikeEngineBreakage(raw), "ложная тревога: \(raw)")
+        }
+    }
+
+    func testVersionComparison() {
+        XCTAssertTrue(EngineUpdater.isNewer("2026.08.09", than: "2026.07.04"))
+        XCTAssertTrue(EngineUpdater.isNewer("2026.07.04.1", than: "2026.07.04"))
+        XCTAssertTrue(EngineUpdater.isNewer("2027.01.01", than: "2026.12.31"))
+        XCTAssertFalse(EngineUpdater.isNewer("2026.07.04", than: "2026.07.04"))
+        XCTAssertFalse(EngineUpdater.isNewer("2026.06.01", than: "2026.07.04"))
+        XCTAssertTrue(EngineUpdater.isNewer("2026.07.04", than: nil), "версия неизвестна — считаем новее")
+    }
+
+    /// В сеть не ходим на каждый сбой: подряд идущие ошибки не должны дёргать GitHub.
+    func testCheckIsThrottled() {
+        let suite = UserDefaults(suiteName: "ytvd.tests.\(UUID().uuidString)")!
+        let now = Date()
+
+        XCTAssertTrue(EngineUpdater.shouldCheck(now: now, defaults: suite), "первая проверка разрешена")
+        EngineUpdater.rememberCheck(now: now, defaults: suite)
+
+        XCTAssertFalse(EngineUpdater.shouldCheck(now: now.addingTimeInterval(60), defaults: suite))
+        XCTAssertFalse(EngineUpdater.shouldCheck(now: now.addingTimeInterval(3600), defaults: suite))
+        XCTAssertTrue(EngineUpdater.shouldCheck(now: now.addingTimeInterval(7 * 3600), defaults: suite))
+    }
+
+    func testDownloadsLandNextToSettings() {
+        XCTAssertTrue(EngineUpdater.directory.path.contains("Application Support/YTVD/bin"))
+        XCTAssertEqual(BinaryLocator.searchDirectories().first, EngineUpdater.directory,
+                       "скачанное обновление важнее и встроенного, и системного")
+    }
+}

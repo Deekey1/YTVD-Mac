@@ -23,11 +23,22 @@ echo "▸ Иконка"
 swift "$ROOT/scripts/make-icon.swift" "$BUILD" >/dev/null
 iconutil -c icns "$BUILD/AppIcon.iconset" -o "$BUILD/AppIcon.icns"
 
+if [[ " $* " == *" --with-tools "* ]]; then
+  echo "▸ Движок внутрь приложения"
+  "$ROOT/scripts/fetch-tools.sh" "$BUILD/bin" >/dev/null
+fi
+
 echo "▸ Бандл"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/YTVD"
 cp "$BUILD/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+# Приложение ищет движок здесь в первую очередь — см. BinaryLocator.bundledDirectory.
+if [[ -d "$BUILD/bin" ]]; then
+  mkdir -p "$APP/Contents/Resources/bin"
+  cp "$BUILD/bin"/* "$APP/Contents/Resources/bin/"
+  chmod +x "$APP/Contents/Resources/bin"/*
+fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -53,13 +64,17 @@ PLIST
 cat > "$APP/Contents/PkgInfo" <<< "APPL????"
 
 echo "▸ Подпись (ad-hoc)"
+# Вложенные исполняемые файлы подписываем раньше самого бандла.
+for tool in "$APP/Contents/Resources/bin/"*; do
+  [[ -f "$tool" ]] && codesign --force --sign - --timestamp=none "$tool" >/dev/null 2>&1 || true
+done
 codesign --force --sign - --timestamp=none "$APP" >/dev/null 2>&1 || \
   echo "  предупреждение: подписать не удалось, приложение всё равно запустится локально"
 
 SIZE=$(du -sh "$APP" | cut -f1)
 echo "✓ Готово: $APP ($SIZE)"
 
-if [[ "${1:-}" == "--install" ]]; then
+if [[ " $* " == *" --install "* ]]; then
   echo "▸ Копирую в /Applications"
   rm -rf "/Applications/YTVD.app"
   cp -R "$APP" "/Applications/YTVD.app"

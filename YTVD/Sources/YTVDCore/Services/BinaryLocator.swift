@@ -19,9 +19,10 @@ public enum BinaryLocator {
     }
 
     public static func searchDirectories() -> [URL] {
-        var dirs: [URL] = []
+        // Порядок важен: сначала то, что приложение скачало само (там свежайшее),
+        // потом встроенное в бандл, и лишь затем системное.
+        var dirs: [URL] = [managedDirectory]
         if let bundled = bundledDirectory { dirs.append(bundled) }
-        dirs.append(managedDirectory)
         dirs += [
             "/opt/homebrew/bin",       // Apple Silicon Homebrew
             "/usr/local/bin",          // Intel Homebrew и ручные установки

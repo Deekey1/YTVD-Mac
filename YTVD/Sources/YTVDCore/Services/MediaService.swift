@@ -46,13 +46,23 @@ public final class MediaService: @unchecked Sendable {
             }
         }
 
-        throw YTVDError.tool(YtDlpOutput.humanError(
-            failure?.raw ?? "",
+        throw Self.failure(raw: failure?.raw ?? "", url: url, network: network,
+                           toolchain: toolchain)
+    }
+
+    /// Собирает ошибку: человеческий текст плюс пометка, что виноват устаревший движок.
+    private static func failure(raw: String, url: URL, network: NetworkOptions,
+                                toolchain: Toolchain) -> YTVDError {
+        let message = YtDlpOutput.humanError(
+            raw,
             source: MediaSource.detect(url),
             viaVPN: NetworkEnvironment.isUsingVPN,
             hasCookies: network.cookiesFromBrowser != nil,
             canMerge: toolchain.canMerge,
-                hasJSRuntime: toolchain.canSolveYouTube))
+            hasJSRuntime: toolchain.canSolveYouTube)
+        return YtDlpOutput.looksLikeEngineBreakage(raw)
+            ? .engineStale(message)
+            : .tool(message)
     }
 
     /// Сырая неудача запуска: текст от yt-dlp нужен целиком, чтобы решить, пробовать ли дальше.
@@ -165,13 +175,7 @@ public final class MediaService: @unchecked Sendable {
 
         if status != 0 {
             if status == 15 || status == 2 { throw YTVDError.cancelled }   // SIGTERM
-            throw YTVDError.tool(YtDlpOutput.humanError(
-                lastError,
-                source: MediaSource.detect(url),
-                viaVPN: NetworkEnvironment.isUsingVPN,
-                hasCookies: network.cookiesFromBrowser != nil,
-                canMerge: toolchain.canMerge,
-                hasJSRuntime: toolchain.canSolveYouTube))
+            throw Self.failure(raw: lastError, url: url, network: network, toolchain: toolchain)
         }
 
         let file = Self.resolveOutput(destinations: destinations, directory: directory,

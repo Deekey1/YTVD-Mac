@@ -4,6 +4,8 @@ import Foundation
 public enum YTVDError: LocalizedError, Equatable {
     case toolMissing(String)
     case tool(String)
+    /// То же сообщение, но сбой похож на устаревший движок — стоит предложить обновление.
+    case engineStale(String)
     case cancelled
     case network(String)
 
@@ -11,6 +13,7 @@ public enum YTVDError: LocalizedError, Equatable {
         switch self {
         case .toolMissing(let name): "Не найден \(name)"
         case .tool(let message): message
+        case .engineStale(let message): message
         case .cancelled: "Отменено"
         case .network(let message): message
         }

@@ -55,6 +55,10 @@ public final class AppModel: ObservableObject {
     /// Ссылка, замеченная в буфере обмена. Держим её здесь, а не в наблюдателе:
     /// изменения вложенного ObservableObject до интерфейса не доходят.
     @Published public private(set) var clipboardSuggestion: URL?
+    /// Вышедшее обновление движка. Появляется только после подходящего сбоя.
+    @Published public private(set) var engineUpdate: EngineUpdater.Available?
+    @Published public private(set) var engineUpdating = false
+    @Published public private(set) var engineNote: String?
 
     public let settings: AppSettings
     public let history: HistoryStore
@@ -432,7 +436,61 @@ public final class AppModel: ObservableObject {
         startNextInQueue()
     }
 
+    // MARK: - самолечение движка
+
+    /// Сбой похож на устаревший yt-dlp — только тогда и лезем в сеть за версией.
+    private func considerEngineUpdate() {
+        guard engineUpdate == nil, !engineUpdating else { return }
+        let current = toolchain.ytdlpVersion
+        Task { [weak self] in
+            guard let update = await EngineUpdater.check(current: current) else { return }
+            self?.engineUpdate = update
+        }
+    }
+
+    public func updateEngine() {
+        guard !engineUpdating else { return }
+        engineUpdating = true
+        engineNote = nil
+        Task { [weak self] in
+            defer { self?.engineUpdating = false }
+            do {
+                _ = try await EngineUpdater.installYtDlp()
+                await self?.refreshToolchain()
+                self?.engineUpdate = nil
+                self?.engineNote = "Движок обновлён — попробуйте ещё раз"
+            } catch {
+                self?.engineNote = (error as? YTVDError)?.errorDescription
+                    ?? error.localizedDescription
+            }
+        }
+    }
+
+    /// Докачивает недостающий инструмент: ffmpeg для склейки, движок целиком.
+    public func installMissingTool() {
+        guard !engineUpdating else { return }
+        engineUpdating = true
+        engineNote = nil
+        Task { [weak self] in
+            defer { self?.engineUpdating = false }
+            do {
+                if self?.toolchain.canSolveYouTube == false || self?.toolchain.isReady == false {
+                    _ = try await EngineUpdater.installYtDlp()
+                }
+                if self?.toolchain.canMerge == false {
+                    _ = try await EngineUpdater.installFfmpeg()
+                }
+                await self?.refreshToolchain()
+                self?.engineNote = "Готово — попробуйте ещё раз"
+            } catch {
+                self?.engineNote = (error as? YTVDError)?.errorDescription
+                    ?? error.localizedDescription
+            }
+        }
+    }
+
     private func fail(_ error: Error) {
+        if case YTVDError.engineStale = error { considerEngineUpdate() }
         errorText = (error as? YTVDError)?.errorDescription ?? error.localizedDescription
         progress = nil
         // Если варианты уже разобраны, оставляем их на экране: с ошибкой можно

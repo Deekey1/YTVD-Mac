@@ -180,6 +180,26 @@ public enum YtDlpOutput {
         return text.isEmpty ? "Не удалось получить данные" : text
     }
 
+    /// Похоже ли, что сломался сам движок, а не доступ. Площадки регулярно меняют
+    /// внутренности, и yt-dlp перестаёт их понимать — лечится обновлением.
+    /// Отказы по адресу, входу и правам сюда не относятся: обновление им не поможет.
+    public static func looksLikeEngineBreakage(_ raw: String) -> Bool {
+        guard !isAddressRelated(raw) else { return false }
+        let lowered = raw.lowercased()
+
+        let hopeless = ["video unavailable", "private video", "members-only",
+                        "privacyerror", "only works when logged-in", "unsupported url",
+                        "no space left", "live event will begin"]
+        guard !hopeless.contains(where: lowered.contains) else { return false }
+
+        let symptoms = ["requested format is not available", "unable to extract",
+                        "nsig extraction failed", "signature extraction failed",
+                        "only images are available", "n challenge solving failed",
+                        "confirm you are on the latest version", "please report this issue",
+                        "unable to parse", "failed to parse json"]
+        return symptoms.contains(where: lowered.contains)
+    }
+
     /// Похоже ли, что площадка отказала именно из-за адреса, с которого пришёл запрос.
     /// Сюда же неудачная выдача OAuth-токена Vimeo и обрыв по таймауту: у них общий корень.
     public static func isAddressRelated(_ raw: String) -> Bool {
