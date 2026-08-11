@@ -160,8 +160,11 @@ public struct RootView: View {
             } else if !model.urlText.isEmpty {
                 // Тот же сброс, что и по нажатию на логотип.
                 Button { model.reset() } label: {
-                    IconView(.close, size: 12, lineWidth: 2).foregroundStyle(Theme.muted)
-                        .frame(width: 20, height: 20)
+                    IconView(.close, size: 12, lineWidth: 2)
+                        .foregroundStyle(Theme.muted)
+                        .frame(width: 22, height: 22)
+                        // Сама иконка нажатий не принимает — задаём область явно.
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Очистить")
@@ -442,12 +445,19 @@ struct PrimaryButton: View {
                 if let icon { IconView(icon, size: 15, lineWidth: 2) }
                 Text(title).font(Theme.Font.button).lineLimit(1)
             }
-            .foregroundStyle(style == .filled ? Color.white : Theme.text)
+            .foregroundStyle(!enabled ? Theme.muted : (style == .filled ? Color.white : Theme.text))
             .frame(maxWidth: .infinity)
             .frame(height: 34)
             .background {
-                if style == .filled {
+                if style == .filled && enabled {
                     BlockBackground(color: Theme.blue, radius: 6)
+                } else if style == .filled {
+                    // Неактивную кнопку красим нейтрально: приглушённый синий
+                    // на светлом фоне сливается и подпись пропадает.
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Theme.bg3)
+                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(Theme.hair, lineWidth: 1))
                 } else {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(Theme.bg3)
@@ -456,7 +466,6 @@ struct PrimaryButton: View {
                 }
             }
             .brightness(hovering && enabled ? 0.07 : 0)
-            .opacity(enabled ? 1 : 0.4)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)

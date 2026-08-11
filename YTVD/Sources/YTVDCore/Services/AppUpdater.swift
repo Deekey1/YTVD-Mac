@@ -25,7 +25,14 @@ public enum AppUpdater {
         request.timeoutInterval = 20
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // Закрытый репозиторий отвечает 404 всем, кто не авторизован, — а приложение
+        // авторизоваться не может и не должно. Говорим об этом прямо.
+        if let http = response as? HTTPURLResponse, http.statusCode == 404 || http.statusCode == 403 {
+            throw YTVDError.network("Репозиторий закрыт — проверка обновлений через него "
+                                  + "недоступна. Сделайте его публичным на GitHub.")
+        }
 
         struct Asset: Decodable { let name: String; let browser_download_url: String }
         struct Release: Decodable {

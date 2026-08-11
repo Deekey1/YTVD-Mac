@@ -79,6 +79,8 @@ public struct IconButton: View {
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
                         .fill(active ? Theme.blue : (hovering ? Theme.bg3 : .clear))
                 )
+                // Прозрачная подложка нажатий не принимает — задаём область явно.
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
