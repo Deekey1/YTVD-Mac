@@ -58,6 +58,12 @@ enum YTVDApp {
             exit(code)
         }
 
+        // Сервер для iPhone без окна: --serve [--port 8765] [--bind 0.0.0.0]
+        if arguments.contains("--serve") {
+            setvbuf(stdout, nil, _IOLBF, 0)      // строки сразу видны и при выводе в файл
+            ServeCommand.run(arguments: arguments)
+        }
+
         let delegate = AppDelegate()
         app.delegate = delegate
         // Виджет живёт в меню-баре, а не в Dock.

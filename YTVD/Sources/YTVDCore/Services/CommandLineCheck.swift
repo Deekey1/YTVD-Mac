@@ -105,10 +105,9 @@ public enum CommandLineCheck {
                 return 1
             }
 
-            if let coverURL = options.first(where: { $0.group == .cover })?.plan.coverURL,
-               let source = URL(string: coverURL) {
+            if options.contains(where: { $0.group == .cover }) {
                 let jpeg = directory.appendingPathComponent(base + ".jpg")
-                _ = try await ThumbnailService.saveJPEG(from: source, to: jpeg)
+                _ = try await ThumbnailService.saveJPEG(fromFirstOf: info.thumbnailCandidates, to: jpeg)
                 let coverSize = (try? FileManager.default.attributesOfItem(atPath: jpeg.path)[.size] as? Int64) ?? 0
                 print("✓ обложка: \(jpeg.lastPathComponent) (\(Fmt.bytes(coverSize ?? 0)))")
             }

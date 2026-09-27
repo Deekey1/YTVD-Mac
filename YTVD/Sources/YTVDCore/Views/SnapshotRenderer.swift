@@ -46,6 +46,18 @@ public enum SnapshotRenderer {
             model.applyFixture(.ready)
             model.panel = .settings
         },
+        Shot(name: "08b-settings-server-dark", dark: true) { model in
+            model.applyFixture(.ready)
+            model.settings.serverEnabled = true
+            model.server.setPreviewForTesting(port: 8765, addresses: ["192.168.31.24"], code: "482913")
+            model.panel = .settings
+        },
+        Shot(name: "08c-settings-server-light", dark: false) { model in
+            model.applyFixture(.ready)
+            model.settings.serverEnabled = true
+            model.server.setPreviewForTesting(port: 8765, addresses: ["192.168.31.24"], code: nil)
+            model.panel = .settings
+        },
         Shot(name: "09-history-dark", dark: true) { model in
             model.applyFixture(.ready)
             model.panel = .history

@@ -20,6 +20,9 @@ public final class AppSettings: ObservableObject {
         static let appearance = "appearance"
         static let cookiesBrowser = "cookiesFromBrowser"
         static let proxy = "proxyURL"
+        static let serverEnabled = "serverEnabled"
+        static let serverPort = "serverPort"
+        static let serverBind = "serverBind"
     }
 
     private let defaults: UserDefaults
@@ -40,6 +43,11 @@ public final class AppSettings: ObservableObject {
             Key.appearance: "system",
             Key.cookiesBrowser: "",
             Key.proxy: "",
+            // Сервер для iPhone выключен, пока его не включат явно: Mac не должен
+            // сам по себе становиться загрузчиком для всей домашней сети.
+            Key.serverEnabled: false,
+            Key.serverPort: Int(API.defaultPort),
+            Key.serverBind: "all",
         ])
         self.directory = Self.readDirectory(defaults)
         self.defaultQuality = defaults.integer(forKey: Key.quality)
@@ -55,6 +63,9 @@ public final class AppSettings: ObservableObject {
         self.appearance = defaults.string(forKey: Key.appearance) ?? "system"
         self.cookiesFromBrowser = defaults.string(forKey: Key.cookiesBrowser) ?? ""
         self.proxyURL = defaults.string(forKey: Key.proxy) ?? ""
+        self.serverEnabled = defaults.bool(forKey: Key.serverEnabled)
+        self.serverPort = defaults.integer(forKey: Key.serverPort)
+        self.serverBind = defaults.string(forKey: Key.serverBind) ?? "all"
     }
 
     @Published public var directory: URL { didSet { defaults.set(directory.path, forKey: Key.directory) } }
@@ -73,6 +84,11 @@ public final class AppSettings: ObservableObject {
     /// Пусто — не использовать. Иначе safari, chrome, firefox…
     @Published public var cookiesFromBrowser: String { didSet { defaults.set(cookiesFromBrowser, forKey: Key.cookiesBrowser) } }
     @Published public var proxyURL: String { didSet { defaults.set(proxyURL, forKey: Key.proxy) } }
+    /// Сервер для iPhone. Порт и адрес меняются через `defaults write studio.dk.ytvd serverPort 8765`.
+    @Published public var serverEnabled: Bool { didSet { defaults.set(serverEnabled, forKey: Key.serverEnabled) } }
+    @Published public var serverPort: Int { didSet { defaults.set(serverPort, forKey: Key.serverPort) } }
+    /// «all» — домашняя сеть, «loopback» — только этот Mac, или конкретный адрес.
+    @Published public var serverBind: String { didSet { defaults.set(serverBind, forKey: Key.serverBind) } }
 
     public var network: NetworkOptions {
         NetworkOptions(cookiesFromBrowser: cookiesFromBrowser,
@@ -119,5 +135,6 @@ public final class AppSettings: ObservableObject {
         appearance = "system"
         cookiesFromBrowser = ""
         proxyURL = ""
+        // Сервер для iPhone сброс не трогает: иначе сопряжённый iPhone внезапно потеряет Mac.
     }
 }

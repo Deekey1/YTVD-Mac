@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Обёртка над yt-dlp: получение сведений и скачивание.
 public final class MediaService: @unchecked Sendable {
@@ -50,9 +51,14 @@ public final class MediaService: @unchecked Sendable {
                            toolchain: toolchain)
     }
 
+    private static let log = Logger(subsystem: "studio.dk.ytvd", category: "engine")
+
     /// Собирает ошибку: человеческий текст плюс пометка, что виноват устаревший движок.
     private static func failure(raw: String, url: URL, network: NetworkOptions,
                                 toolchain: Toolchain) -> YTVDError {
+        // Техническая причина — в журнал: пользователь видит только человеческий текст.
+        // yt-dlp не печатает cookies в ошибках, так что хвост его вывода безопасен.
+        log.error("yt-dlp: \(String(raw.suffix(2000)), privacy: .public)")
         let message = YtDlpOutput.humanError(
             raw,
             source: MediaSource.detect(url),

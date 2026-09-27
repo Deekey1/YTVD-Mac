@@ -52,6 +52,10 @@ final class YtDlpOutputTests: XCTestCase {
 
     func testHumanErrorTranslatesCommonCases() {
         XCTAssertEqual(YtDlpOutput.humanError("ERROR: Video unavailable"), "Видео недоступно")
+        XCTAssertEqual(YtDlpOutput.humanError("ERROR: [youtube] aaaaaaaaaaa: This video is unavailable"),
+                       "Видео недоступно")
+        XCTAssertEqual(YtDlpOutput.humanError("ERROR: [youtube] x: This video has been removed by the uploader"),
+                       "Видео недоступно")
         XCTAssertEqual(YtDlpOutput.humanError("ERROR: Private video. Sign in if you've been granted access"),
                        "Это приватное видео")
         XCTAssertEqual(YtDlpOutput.humanError("ERROR: The uploader has not made this video available in your country"),

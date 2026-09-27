@@ -169,10 +169,12 @@ struct SettingsPanel: View {
 
     @ObservedObject var model: AppModel
     @ObservedObject private var settings: AppSettings
+    @ObservedObject private var server: ServerController
 
     init(model: AppModel) {
         self.model = model
         self.settings = model.settings
+        self.server = model.server
     }
 
     var body: some View {
@@ -254,6 +256,34 @@ struct SettingsPanel: View {
                        note: "Мимо VPN: socks5://127.0.0.1:1080") {
                 PanelField(text: Binding(get: { settings.proxyURL },
                                          set: { settings.proxyURL = $0 }))
+            }
+            SettingRow(title: "Сервер для iPhone", note: server.statusText) {
+                BlockToggle(isOn: Binding(get: { settings.serverEnabled },
+                                          set: { server.setEnabled($0, toolchain: model.toolchain) }))
+            }
+            if settings.serverEnabled {
+                SettingRow(title: "Доступ к серверу",
+                           note: settings.serverBind == "loopback"
+                               ? "Только с этого Mac — для проверки"
+                               : "iPhone в той же сети, по коду сопряжения") {
+                    Segmented(value: Binding(
+                        get: { settings.serverBind == "loopback" ? 1 : 0 },
+                        set: { server.setBind($0 == 1 ? "loopback" : "all", toolchain: model.toolchain) }),
+                              options: [("Сеть", 0), ("Только Mac", 1)])
+                }
+                SettingRow(title: "Сопряжение с iPhone", note: server.pairingNote) {
+                    if let code = server.codeText {
+                        Text(code)
+                            .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(Theme.text)
+                            .textSelection(.enabled)
+                    } else if server.isRunning {
+                        MiniButton(title: "Показать код") { server.showCode() }
+                    }
+                }
+                SettingRow(title: "Отключить все iPhone", note: "Каждому понадобится новый код") {
+                    MiniButton(title: "Отключить") { server.revokeAll() }
+                }
             }
             SettingRow(title: "Движок", note: model.toolchain.summary) {
                 MiniButton(title: "Проверить") {

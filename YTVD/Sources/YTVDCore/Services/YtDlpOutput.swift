@@ -131,7 +131,11 @@ public enum YtDlpOutput {
             }
         }
 
-        if lowered.contains("video unavailable") { return "Видео недоступно" }
+        // «Video unavailable», «This video is unavailable», «…is no longer available», «…has been removed».
+        if lowered.contains("video unavailable") || lowered.contains("video is unavailable")
+            || lowered.contains("no longer available") || lowered.contains("has been removed") {
+            return "Видео недоступно"
+        }
         if lowered.contains("privacyerror") || lowered.contains("privacy error") {
             return "Владелец ограничил доступ к ролику — Vimeo отдаёт его только на "
                  + "разрешённых сайтах. Скачать его нельзя."

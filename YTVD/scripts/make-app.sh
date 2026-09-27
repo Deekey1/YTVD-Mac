@@ -57,6 +57,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>LSUIElement</key>               <true/>
     <key>NSHighResolutionCapable</key>   <true/>
     <key>NSHumanReadableCopyright</key>  <string>Иконки: Obra Icons (MIT)</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Сервер для iPhone: приложение на iPhone находит этот Mac в домашней сети и забирает с него скачанные видео.</string>
+    <key>NSBonjourServices</key>
+    <array><string>_ytvd._tcp</string></array>
 </dict>
 </plist>
 PLIST

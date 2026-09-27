@@ -16,18 +16,22 @@ public struct RawFormat: Decodable, Sendable, Equatable {
     public var vbr: Double?
     public var format_note: String?
     public var audio_channels: Int?
+    /// SDR, HDR10, HLG… — HDR для iPhone-варианта не берём.
+    public var dynamic_range: String?
     public var `protocol`: String?
 
     public init(format_id: String? = nil, ext: String? = nil, vcodec: String? = nil,
                 acodec: String? = nil, height: Int? = nil, width: Int? = nil, fps: Double? = nil,
                 filesize: Int64? = nil, filesize_approx: Int64? = nil, tbr: Double? = nil,
                 abr: Double? = nil, vbr: Double? = nil, format_note: String? = nil,
-                audio_channels: Int? = nil, protocol: String? = nil) {
+                audio_channels: Int? = nil, protocol: String? = nil,
+                dynamic_range: String? = nil) {
         self.format_id = format_id; self.ext = ext; self.vcodec = vcodec; self.acodec = acodec
         self.height = height; self.width = width; self.fps = fps
         self.filesize = filesize; self.filesize_approx = filesize_approx
         self.tbr = tbr; self.abr = abr; self.vbr = vbr; self.format_note = format_note
         self.audio_channels = audio_channels; self.protocol = `protocol`
+        self.dynamic_range = dynamic_range
     }
 
     // Важно различать «кодек указан как none» (дорожки точно нет) и «кодек не указан»
@@ -114,6 +118,38 @@ public struct MediaInfo: Decodable, Sendable, Equatable {
 
     public var displayTitle: String { (title?.isEmpty == false ? title! : nil) ?? "Без названия" }
     public var displayAuthor: String? { channel ?? uploader }
+
+    /// Все обложки от лучшей к худшей, JPEG раньше WebP того же качества.
+    /// Лучшая по данным площадки может не существовать: у старых роликов YouTube
+    /// отдаёт 404 на maxresdefault, поэтому нужен список, а не один адрес.
+    public var thumbnailCandidates: [String] {
+        let list = (thumbnails ?? []).filter { $0.url?.isEmpty == false }
+        let isWebP: (RawThumbnail) -> Bool = { ($0.url ?? "").lowercased().contains(".webp") }
+        let ranked = list.enumerated().sorted { left, right in
+            let l = (left.element.preference ?? Int.min, left.element.width ?? 0,
+                     isWebP(left.element) ? 0 : 1, left.offset)
+            let r = (right.element.preference ?? Int.min, right.element.width ?? 0,
+                     isWebP(right.element) ? 0 : 1, right.offset)
+            return l > r
+        }.compactMap(\.element.url)
+        let all = ranked + [thumbnail].compactMap { $0 }
+
+        // У YouTube WebP-двойник стоит на единицу выше своего JPEG. Качество то же,
+        // а JPEG не надо перекодировать — ставим его перед двойником с тем же именем.
+        let stem: (String) -> String = {
+            (URL(string: $0)?.deletingPathExtension().lastPathComponent ?? $0).lowercased()
+        }
+        var result: [String] = []
+        for url in all where !result.contains(url) {
+            if url.lowercased().contains(".webp"),
+               let twin = all.first(where: { !$0.lowercased().contains(".webp") && stem($0) == stem(url) }),
+               !result.contains(twin) {
+                result.append(twin)
+            }
+            if !result.contains(url) { result.append(url) }
+        }
+        return result
+    }
 
     /// Самая крупная доступная обложка.
     ///

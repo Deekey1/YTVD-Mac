@@ -22,6 +22,17 @@ public enum ThumbnailService {
         }
     }
 
+    /// Первая обложка из списка, которая реально скачалась. Лучшей по данным площадки
+    /// может не быть: у старых роликов YouTube отвечает 404 на maxresdefault.
+    public static func fetchFirst(_ candidates: [String]) async throws -> Data {
+        var lastError: Error = YTVDError.network("У ролика нет обложки")
+        for raw in candidates {
+            guard let url = URL(string: raw) else { continue }
+            do { return try await fetch(url) } catch { lastError = error }
+        }
+        throw lastError
+    }
+
     public static func image(from data: Data) -> NSImage? { NSImage(data: data) }
 
     /// Приводит что угодно (webp, png, jpeg) к JPEG.
@@ -35,7 +46,16 @@ public enum ThumbnailService {
     /// Скачивает обложку и кладёт рядом JPEG. Возвращает путь к файлу.
     @discardableResult
     public static func saveJPEG(from url: URL, to destination: URL) async throws -> URL {
-        let data = try await fetch(url)
+        try write(try await fetch(url), to: destination)
+    }
+
+    /// То же, но с запасными адресами: берётся первый, что открылся.
+    @discardableResult
+    public static func saveJPEG(fromFirstOf candidates: [String], to destination: URL) async throws -> URL {
+        try write(try await fetchFirst(candidates), to: destination)
+    }
+
+    private static func write(_ data: Data, to destination: URL) throws -> URL {
         guard let jpeg = jpegData(from: data) else {
             throw YTVDError.network("Не удалось перевести обложку в JPEG")
         }

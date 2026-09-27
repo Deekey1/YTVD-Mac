@@ -67,6 +67,8 @@ public final class AppModel: ObservableObject {
     public let settings: AppSettings
     public let history: HistoryStore
     public let clipboard: ClipboardWatcher
+    /// Сервер для iPhone: тот же движок, но задания приходят по сети.
+    public let server: ServerController
 
     private var service: MediaService?
     private var job: Task<Void, Never>?
@@ -82,7 +84,11 @@ public final class AppModel: ObservableObject {
         self.settings = settings ?? AppSettings()
         self.history = history ?? HistoryStore()
         self.clipboard = clipboardWatcher
+        self.server = ServerController(settings: self.settings)
         clipboardWatcher.onDetect = { [weak self] url in self?.clipboardFound(url) }
+        server.onToolchainChange = { [weak self] _ in
+            Task { await self?.refreshToolchain() }
+        }
     }
 
     // MARK: - запуск
@@ -91,6 +97,7 @@ public final class AppModel: ObservableObject {
         let chain = await Toolchain.discover()
         toolchain = chain
         service = MediaService(toolchain: chain)
+        server.apply(toolchain: chain)
         if settings.watchClipboard { clipboard.start() }
         if !chain.isReady {
             errorText = "Не найден yt-dlp. Установите его: brew install yt-dlp"
@@ -102,6 +109,7 @@ public final class AppModel: ObservableObject {
         let chain = await Toolchain.discover()
         toolchain = chain
         service = MediaService(toolchain: chain)
+        server.apply(toolchain: chain)
         if chain.isReady, stage == .failed, info == nil { reset() }
     }
 
@@ -137,6 +145,13 @@ public final class AppModel: ObservableObject {
 
     public var coverOption: DownloadOption? {
         options.first { $0.group == .cover }
+    }
+
+    /// Адрес обложки из варианта плюс запасные — на случай, если лучшей у ролика нет.
+    private var coverCandidates: [String] {
+        var list = [coverOption?.plan.coverURL].compactMap { $0 }
+        for url in info?.thumbnailCandidates ?? [] where !list.contains(url) { list.append(url) }
+        return list
     }
 
     /// Чего не хватает в системе. Предупреждаем заранее, а не после неудачной попытки.
@@ -319,9 +334,10 @@ public final class AppModel: ObservableObject {
     }
 
     private func loadThumbnail(_ info: MediaInfo) {
-        guard let raw = info.bestThumbnail?.url, let url = URL(string: raw) else { return }
+        let candidates = info.thumbnailCandidates
+        guard !candidates.isEmpty else { return }
         Task { [weak self] in
-            guard let data = try? await ThumbnailService.fetch(url),
+            guard let data = try? await ThumbnailService.fetchFirst(candidates),
                   let image = ThumbnailService.image(from: data) else { return }
             guard let self, self.info?.id == info.id else { return }
             self.thumbnail = image
@@ -367,7 +383,7 @@ public final class AppModel: ObservableObject {
         let baseName = makeBaseName(for: option)
         let directory = settings.directory
         let alsoCover = coverSelected || settings.saveCoverAlongside
-        let coverURL = coverOption?.plan.coverURL
+        let covers = coverCandidates
 
         job = Task { [weak self] in
             guard let self else { return }
@@ -378,9 +394,9 @@ public final class AppModel: ObservableObject {
                         Task { @MainActor [weak self] in self?.apply(event) }
                     })
 
-                if alsoCover, let coverURL, let source = URL(string: coverURL) {
+                if alsoCover, !covers.isEmpty {
                     let destination = directory.appendingPathComponent(baseName + ".jpg")
-                    self.coverSavedAt = try? await ThumbnailService.saveJPEG(from: source, to: destination)
+                    self.coverSavedAt = try? await ThumbnailService.saveJPEG(fromFirstOf: covers, to: destination)
                 }
 
                 guard !Task.isCancelled else { return }
@@ -397,7 +413,8 @@ public final class AppModel: ObservableObject {
 
     /// Скачивание одной обложки, без видео.
     private func saveCoverOnly() {
-        guard let coverURL = coverOption?.plan.coverURL, let source = URL(string: coverURL) else { return }
+        let covers = coverCandidates
+        guard !covers.isEmpty else { return }
         let base = makeBaseName(for: coverOption)
         let destination = settings.directory.appendingPathComponent(base + ".jpg")
         stage = .downloading
@@ -407,7 +424,7 @@ public final class AppModel: ObservableObject {
         job = Task { [weak self] in
             guard let self else { return }
             do {
-                let file = try await ThumbnailService.saveJPEG(from: source, to: destination)
+                let file = try await ThumbnailService.saveJPEG(fromFirstOf: covers, to: destination)
                 let size = (try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? Int64) ?? 0
                 self.coverSavedAt = file
                 self.finished = Finished(file: file, bytes: size ?? 0, seconds: self.elapsed())
