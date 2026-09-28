@@ -55,6 +55,8 @@ public actor JobStore {
     private var running: [String: Task<Void, Never>] = [:]
     private var engines: [String: any MediaEngine] = [:]
     private var cache: [String: CachedResolve] = [:]
+    /// Разборы, которые идут прямо сейчас: вторая копия той же ссылки ждёт первую.
+    private var resolving: [String: Task<CachedResolve, Error>] = [:]
     private var lastProgressAt: [String: Date] = [:]
 
     public init(config: Configuration = .standard,
@@ -91,7 +93,15 @@ public actor JobStore {
         if !forceFresh, let hit = cache[key], Date().timeIntervalSince(hit.date) < config.resolveTTL {
             return hit
         }
+        // Та же ссылка уже разбирается — ждём тот же результат, а не запускаем yt-dlp второй раз.
+        if let running = resolving[key] { return try await running.value }
+        let task = Task { try await self.resolveFresh(url: url, key: key) }
+        resolving[key] = task
+        defer { resolving[key] = nil }
+        return try await task.value
+    }
 
+    private func resolveFresh(url: URL, key: String) async throws -> CachedResolve {
         let engine = makeEngine()
         let resolved: MediaService.Resolved
         do {

@@ -52,6 +52,10 @@ enum AppError: LocalizedError, Equatable {
                  .internationalRoamingOff, .dataNotAllowed, .secureConnectionFailed:
                 return .serverUnavailable
             case .appTransportSecurityRequiresSecureConnection:
+                if let host = url.failingURL?.host(), Connection.isTailnet(host) {
+                    return .network("По адресу 100.x iOS не пускает — введите имя Mac в Tailscale "
+                                    + "вида macbook-pro.tail1234.ts.net: оно показано на Mac в настройках сервера")
+                }
                 return .network("iOS не пустил соединение с Mac: адрес не похож на домашнюю сеть")
             default:
                 return .network("Ошибка сети: \(url.localizedDescription)")

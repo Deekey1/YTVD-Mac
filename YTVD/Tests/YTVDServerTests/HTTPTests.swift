@@ -126,3 +126,31 @@ final class PairingTests: XCTestCase {
         XCTAssertFalse(pairing.isAuthorized(nil))
     }
 }
+
+final class AddressTests: XCTestCase {
+    func testTailnetRange() {
+        XCTAssertTrue(IPhoneServer.isTailnet("100.118.111.42"))
+        XCTAssertTrue(IPhoneServer.isTailnet("100.64.0.1"))
+        XCTAssertTrue(IPhoneServer.isTailnet("100.127.255.254"))
+        XCTAssertFalse(IPhoneServer.isTailnet("100.63.255.255"))
+        XCTAssertFalse(IPhoneServer.isTailnet("100.128.0.1"))
+        XCTAssertFalse(IPhoneServer.isTailnet("192.168.31.50"))
+        XCTAssertFalse(IPhoneServer.isTailnet("fd7a:115c:a1e0::1"))
+    }
+
+    func testTailnetNames() {
+        XCTAssertTrue(IPhoneServer.isTailnetName("macbook-pro.tail104177.ts.net"))
+        XCTAssertTrue(IPhoneServer.isTailnetName("MacBook-Pro.Tail1.TS.NET"))
+        XCTAssertFalse(IPhoneServer.isTailnetName("macbook-pro.local"))
+        XCTAssertFalse(IPhoneServer.isTailnetName("ts.net.example.com"))
+        // На этом Mac имя, если оно есть, соответствует адресу Tailscale.
+        XCTAssertTrue(IPhoneServer.tailnetNames().allSatisfy(IPhoneServer.isTailnetName))
+    }
+
+    func testAddressListsDoNotOverlap() {
+        let local = Set(IPhoneServer.localAddresses())
+        let tailnet = Set(IPhoneServer.tailnetAddresses())
+        XCTAssertTrue(local.isDisjoint(with: tailnet))
+        XCTAssertTrue(tailnet.allSatisfy(IPhoneServer.isTailnet))
+    }
+}

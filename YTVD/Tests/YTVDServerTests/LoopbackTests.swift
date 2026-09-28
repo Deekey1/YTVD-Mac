@@ -90,6 +90,22 @@ final class LoopbackTests: BackendTestCase {
         XCTAssertTrue(headBody.isEmpty, "на HEAD тела нет")
     }
 
+    /// Сопряжённый iPhone узнаёт все адреса Mac — с настоящим портом; чужим они не показываются.
+    func testAddressesOnlyForPairedPhone() async throws {
+        server.addressProvider = { ["192.168.1.10", "100.101.102.103"] }
+        guard case .listening(let port) = server.state else { return XCTFail() }
+
+        let (anonymous, _) = try await send("GET", "info")
+        XCTAssertNil(try API.decoder.decode(ServerInfo.self, from: anonymous).addresses)
+
+        let (code, _) = server.pairing.newCode()
+        let (pairData, _) = try await send("POST", "pair", json: PairRequest(code: code, deviceName: "iPhone"))
+        let token = try API.decoder.decode(PairResponse.self, from: pairData).token
+        let (mine, _) = try await send("GET", "info", token: token)
+        XCTAssertEqual(try API.decoder.decode(ServerInfo.self, from: mine).addresses,
+                       ["http://192.168.1.10:\(port)", "http://100.101.102.103:\(port)"])
+    }
+
     func testManyParallelRequests() async throws {
         try await withThrowingTaskGroup(of: Int.self) { group in
             for _ in 0..<24 {

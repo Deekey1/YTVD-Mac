@@ -68,6 +68,11 @@ public final class HTTPServer: @unchecked Sendable {
     public func start() throws {
         let parameters = NWParameters.tcp
         parameters.allowLocalEndpointReuse = true
+        // Только IPv4: слушатель «на оба протокола» не получает IPv4-соединения, которые
+        // приходят через VPN-туннель (utun) — а именно так iPhone достаёт Mac через Tailscale.
+        if let ip = parameters.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options {
+            ip.version = .v4
+        }
 
         let listener: NWListener
         switch bind {

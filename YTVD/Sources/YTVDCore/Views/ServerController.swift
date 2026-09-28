@@ -1,4 +1,5 @@
 import Foundation
+import IOKit.pwr_mgt
 import SwiftUI
 
 /// Сервер для iPhone внутри Mac-приложения: включение, адреса, код сопряжения.
@@ -14,6 +15,8 @@ public final class ServerController: ObservableObject {
 
     @Published public private(set) var status: Status = .off
     @Published public private(set) var addresses: [String] = []
+    /// Адреса в Tailscale — по ним iPhone достаёт Mac из любой сети.
+    @Published public private(set) var remoteAddresses: [String] = []
     @Published public private(set) var code: String?
     /// Сколько секунд живёт показанный код — тикает раз в секунду.
     @Published public private(set) var codeSecondsLeft = 0
@@ -29,6 +32,7 @@ public final class ServerController: ObservableObject {
     private var server: IPhoneServer?
     private var codeExpires: Date?
     private var timer: Timer?
+    private var sleepAssertion: IOPMAssertionID = 0
 
     public static let codeLifetime: TimeInterval = 300
 
@@ -95,15 +99,51 @@ public final class ServerController: ObservableObject {
         server = nil
         status = .off
         addresses = []
+        remoteAddresses = []
         hideCode()
+        updateSleepAssertion()
     }
+
+    /// Переключатель «Не давать Mac засыпать».
+    func setKeepAwake(_ keepAwake: Bool) {
+        settings.serverKeepAwake = keepAwake
+        updateSleepAssertion()
+    }
+
+    /// Пока сервер работает, Mac не засыпает сам (экран гаснет как обычно):
+    /// спящий Mac iPhone издалека не разбудит.
+    private func updateSleepAssertion() {
+        let wanted = isRunning && settings.serverKeepAwake
+        if wanted, sleepAssertion == 0 {
+            var id: IOPMAssertionID = 0
+            let result = IOPMAssertionCreateWithName(kIOPMAssertPreventUserIdleSystemSleep as CFString,
+                                                     IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                                                     "YTVD: сервер для iPhone" as CFString, &id)
+            if result == kIOReturnSuccess { sleepAssertion = id }
+        } else if !wanted, sleepAssertion != 0 {
+            IOPMAssertionRelease(sleepAssertion)
+            sleepAssertion = 0
+        }
+    }
+
+    /// Держит ли сейчас Mac от сна — для тестов и подписи в настройках.
+    var preventsSleep: Bool { sleepAssertion != 0 }
 
     private func update(_ state: HTTPServer.State) {
         switch state {
         case .listening(let port):
             status = .running(port: port)
-            addresses = BindAddress(settings.serverBind) == .loopback
-                ? ["127.0.0.1"] : IPhoneServer.localAddresses()
+            let loopback = BindAddress(settings.serverBind) == .loopback
+            addresses = loopback ? ["127.0.0.1"] : IPhoneServer.localAddresses()
+            remoteAddresses = loopback ? [] : IPhoneServer.tailnetAddresses()
+            // Имя в Tailscale узнаём в фоне: это запрос к DNS, окно ждать его не должно.
+            if !loopback {
+                Task { [weak self] in
+                    let names = await Task.detached { IPhoneServer.tailnetNames() }.value
+                    guard !names.isEmpty else { return }
+                    self?.remoteAddresses = names
+                }
+            }
         case .failed(let reason):
             status = .failed(reason)
             server = nil
@@ -112,6 +152,7 @@ public final class ServerController: ObservableObject {
         case .stopped:
             if server == nil { status = .off }
         }
+        updateSleepAssertion()
     }
 
     // MARK: - сопряжение
@@ -170,7 +211,8 @@ public final class ServerController: ObservableObject {
         case .running(let port):
             guard let first = addresses.first else { return "Работает на порту \(port) — нет сети" }
             let rest = addresses.count > 1 ? " и ещё \(addresses.count - 1)" : ""
-            return "Работает: \(first):\(port)\(rest)"
+            let remote = remoteAddresses.first.map { " · вне дома через Tailscale: \($0)" } ?? ""
+            return "Работает: \(first):\(port)\(rest)\(remote)"
         case .failed(let reason):
             return "Не запустился: \(reason)"
         }
@@ -191,10 +233,19 @@ public final class ServerController: ObservableObject {
         return isRunning ? "Покажите код и введите его на iPhone" : "Сначала включите сервер"
     }
 
+    /// Подпись под «Не давать Mac засыпать».
+    public var keepAwakeNote: String {
+        remoteAddresses.isEmpty
+            ? "Пока сервер включён. Для доступа не из дома поставьте Tailscale на Mac и iPhone"
+            : "Пока сервер включён — спящий Mac iPhone издалека не разбудит"
+    }
+
     /// Для снимков окна: сервер «работает» и показывает код, ничего не открывая в сети.
-    func setPreviewForTesting(port: UInt16, addresses: [String], code: String?) {
+    func setPreviewForTesting(port: UInt16, addresses: [String], code: String?,
+                              remoteAddresses: [String] = []) {
         status = .running(port: port)
         self.addresses = addresses
+        self.remoteAddresses = remoteAddresses
         self.code = code
         codeSecondsLeft = code == nil ? 0 : 272
     }

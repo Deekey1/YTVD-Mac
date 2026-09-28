@@ -23,6 +23,7 @@ public final class AppSettings: ObservableObject {
         static let serverEnabled = "serverEnabled"
         static let serverPort = "serverPort"
         static let serverBind = "serverBind"
+        static let serverKeepAwake = "serverKeepAwake"
     }
 
     private let defaults: UserDefaults
@@ -48,6 +49,7 @@ public final class AppSettings: ObservableObject {
             Key.serverEnabled: false,
             Key.serverPort: Int(API.defaultPort),
             Key.serverBind: "all",
+            Key.serverKeepAwake: true,
         ])
         self.directory = Self.readDirectory(defaults)
         self.defaultQuality = defaults.integer(forKey: Key.quality)
@@ -66,6 +68,7 @@ public final class AppSettings: ObservableObject {
         self.serverEnabled = defaults.bool(forKey: Key.serverEnabled)
         self.serverPort = defaults.integer(forKey: Key.serverPort)
         self.serverBind = defaults.string(forKey: Key.serverBind) ?? "all"
+        self.serverKeepAwake = defaults.bool(forKey: Key.serverKeepAwake)
     }
 
     @Published public var directory: URL { didSet { defaults.set(directory.path, forKey: Key.directory) } }
@@ -89,6 +92,8 @@ public final class AppSettings: ObservableObject {
     @Published public var serverPort: Int { didSet { defaults.set(serverPort, forKey: Key.serverPort) } }
     /// «all» — домашняя сеть, «loopback» — только этот Mac, или конкретный адрес.
     @Published public var serverBind: String { didSet { defaults.set(serverBind, forKey: Key.serverBind) } }
+    /// Не давать Mac засыпать, пока сервер включён: спящий Mac iPhone издалека не разбудит.
+    @Published public var serverKeepAwake: Bool { didSet { defaults.set(serverKeepAwake, forKey: Key.serverKeepAwake) } }
 
     public var network: NetworkOptions {
         NetworkOptions(cookiesFromBrowser: cookiesFromBrowser,

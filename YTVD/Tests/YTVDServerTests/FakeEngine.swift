@@ -15,6 +15,8 @@ final class FakeEngine: MediaEngine, @unchecked Sendable {
         var failResolve: Error?
         var capabilities = EngineCapabilities(canMerge: true, canTranscode: true)
         var fileBytes = 4096
+        /// Сколько «думает» yt-dlp над ссылкой — чтобы разборы успели пересечься.
+        var resolveDelay: UInt64 = 0
 
         init(info: MediaInfo) { self.info = info }
 
@@ -41,6 +43,7 @@ final class FakeEngine: MediaEngine, @unchecked Sendable {
 
     func resolve(url: URL) async throws -> MediaService.Resolved {
         shared.countResolve()
+        if shared.resolveDelay > 0 { try await Task.sleep(nanoseconds: shared.resolveDelay) }
         if let error = shared.failResolve { throw error }
         return MediaService.Resolved(info: shared.info, url: url)
     }

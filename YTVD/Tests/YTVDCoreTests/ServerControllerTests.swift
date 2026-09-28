@@ -69,10 +69,18 @@ final class ServerControllerTests: XCTestCase {
         let (_, denied) = try await URLSession.shared.data(for: jobs)
         XCTAssertEqual((denied as? HTTPURLResponse)?.statusCode, 401)
 
+        // Пока сервер работает, Mac не засыпает; переключатель это отпускает.
+        XCTAssertTrue(server.preventsSleep)
+        server.setKeepAwake(false)
+        XCTAssertFalse(server.preventsSleep)
+        server.setKeepAwake(true)
+        XCTAssertTrue(server.preventsSleep)
+
         server.setEnabled(false, toolchain: toolchain)
         XCTAssertEqual(server.status, .off)
         XCTAssertFalse(settings.serverEnabled)
         XCTAssertEqual(server.statusText, "Выключен")
+        XCTAssertFalse(server.preventsSleep, "выключенный сервер не держит Mac от сна")
     }
 
     func testWithoutEngineServerStaysOff() {

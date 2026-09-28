@@ -26,6 +26,12 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("Mac")
+                } footer: {
+                    if connection.isPaired {
+                        Text(connection.reachableAway
+                             ? "Вне дома приложение само переключится на Tailscale — держите его на iPhone включённым (в приложении Tailscale: VPN On Demand)."
+                             : "Чтобы качать вне дома, поставьте Tailscale на Mac и на iPhone под одной учётной записью.")
+                    }
                 }
 
                 Section {
@@ -178,10 +184,12 @@ struct ServerStatusRow: View {
     private var detail: String {
         switch connection.status {
         case .online(let info):
-            let address = connection.serverURL.map { "\($0.host() ?? ""):\($0.port ?? 0)" } ?? ""
+            // «Подключено через Tailscale · YTVD 1.3 · 100.118.111.42:8765»
+            var parts = ["Подключено" + (Connection.route(for: connection.serverURL).map { " \($0)" } ?? "")]
             // «0» — сборка YTVD без номера версии (запуск из исходников): его не показываем.
-            let version = info.appVersion == "0" ? "" : "YTVD \(info.appVersion) · "
-            return "Подключено · \(version)\(address)"
+            if info.appVersion != "0" { parts.append("YTVD \(info.appVersion)") }
+            if let url = connection.serverURL { parts.append("\(url.host() ?? ""):\(url.port ?? 0)") }
+            return parts.joined(separator: " · ")
         case .checking: return "Проверяю…"
         case .notConfigured: return "Выберите Mac ниже или введите адрес"
         case .unpaired: return "Нужен код сопряжения с Mac"

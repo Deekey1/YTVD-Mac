@@ -199,13 +199,17 @@ public struct ServerInfo: Codable, Sendable, Equatable {
     public var ffmpegVersion: String?
     public var jsRuntime: String?
     public var freeSpace: Int64?
+    /// Все адреса этого Mac вида «http://192.168.1.10:8765» — в домашней сети и в Tailscale.
+    /// iPhone запоминает их и сам переключается, когда уходит из дома. Только своим.
+    public var addresses: [String]?
 
     public init(name: String, appVersion: String, apiVersion: String, authorized: Bool,
                 ready: Bool, ytdlpVersion: String? = nil, ffmpegVersion: String? = nil,
-                jsRuntime: String? = nil, freeSpace: Int64? = nil) {
+                jsRuntime: String? = nil, freeSpace: Int64? = nil, addresses: [String]? = nil) {
         self.name = name; self.appVersion = appVersion; self.apiVersion = apiVersion
         self.authorized = authorized; self.ready = ready; self.ytdlpVersion = ytdlpVersion
         self.ffmpegVersion = ffmpegVersion; self.jsRuntime = jsRuntime; self.freeSpace = freeSpace
+        self.addresses = addresses
     }
 }
 

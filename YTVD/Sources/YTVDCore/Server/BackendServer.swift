@@ -20,6 +20,9 @@ public final class BackendServer: @unchecked Sendable {
     /// Сколько держать фоновый запрос файла, пока Mac ещё качает.
     public static let longPollLimit: TimeInterval = 25 * 60
 
+    /// IP-адреса Mac, которые сообщаются сопряжённому iPhone (домашняя сеть и Tailscale).
+    public var addressProvider: @Sendable () -> [String] = { [] }
+
     /// Обновление yt-dlp по просьбе iPhone. Нет — значит, сервер этого не умеет.
     public var engineUpdate: (@Sendable () async throws -> EngineUpdateResult)?
     private let updateLock = NSLock()
@@ -144,12 +147,15 @@ public final class BackendServer: @unchecked Sendable {
         let engine = engineProbe()
         var info = ServerInfo(name: name, appVersion: appVersion, apiVersion: API.version,
                               authorized: authorized, ready: engine.versions.ytdlp != nil)
-        // Версии инструментов и свободное место — только своим.
+        // Версии инструментов, свободное место и адреса — только своим.
         if authorized {
             info.ytdlpVersion = engine.versions.ytdlp
             info.ffmpegVersion = engine.versions.ffmpeg
             info.jsRuntime = engine.versions.js
             info.freeSpace = freeSpace()
+            if case .listening(let port) = state {
+                info.addresses = addressProvider().map { "http://\($0):\(port)" }
+            }
         }
         return .json(info)
     }

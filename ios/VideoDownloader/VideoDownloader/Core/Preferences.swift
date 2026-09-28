@@ -9,6 +9,7 @@ enum Prefs {
     static let keepOnMac = "keepOnMac"
     static let serverURL = "serverURL"
     static let serverName = "serverName"
+    static let serverAlternates = "serverAlternates"
 
     static func register() {
         UserDefaults.standard.register(defaults: [

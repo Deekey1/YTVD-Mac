@@ -278,20 +278,35 @@ final class TransferService {
         fail(id, message)
     }
 
-    func didFail(_ id: UUID, error: Error, resumeData: Data?) {
+    func didFail(_ id: UUID, error: Error, resumeData: Data?, failedURL: URL?) {
         // Неактивные — это те, что мы сами отменили или уже пометили ошибкой.
         guard let transfer = transfer(id), transfer.isActive else { return }
         let attempts = transfer.attempts + 1
         update(id) { $0.attempts = attempts; $0.speed = nil }
         let code = (error as NSError).code
-        if attempts <= Self.maxAttempts {
-            // Обрыв связи или выгрузка приложения: продолжаем с того же места, а не с нуля.
-            log.info("загрузка \(id.uuidString, privacy: .public): обрыв \(code), попытка \(attempts)")
-            enqueueFile(for: transfer, resumeData: resumeData, delay: Double(attempts) * 3)
-            save()
-        } else {
+        guard attempts <= Self.maxAttempts else {
             if let resumeData { storeResumeData(resumeData, for: id) }
             fail(id, "Загрузка прервалась: \(AppError.from(error).localizedDescription)")
+            return
+        }
+        log.info("загрузка \(id.uuidString, privacy: .public): обрыв \(code), попытка \(attempts)")
+        // Система могла разбудить приложение в фоне ради этой ошибки — не даём уснуть,
+        // пока не поставим загрузку заново.
+        let background = UIApplication.shared.beginBackgroundTask(withName: "Переподключение к Mac")
+        Task {
+            defer { UIApplication.shared.endBackgroundTask(background) }
+            // Связь пропала — возможно, телефон ушёл из дома: сверяем, по какому адресу теперь Mac.
+            await connection.check()
+            guard let current = self.transfer(id), current.isActive else { return }
+            let moved = failedURL?.host() != nil && failedURL?.host() != connection.serverURL?.host()
+            // Докачка возможна только с того же адреса: данные для неё помнят прежний URL.
+            // Сменился адрес — файл берём заново, по новому.
+            enqueueFile(for: current, resumeData: moved ? nil : resumeData, delay: Double(attempts) * 3)
+            if moved {
+                deleteResumeData(for: id)
+                update(id) { $0.received = 0; $0.phase = .mac }
+            }
+            save()
         }
     }
 
@@ -491,15 +506,17 @@ final class SessionDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Se
             try FileManager.default.moveItem(at: location, to: destination)
             Task { @MainActor in service?.didFinish(id, file: destination) }
         } catch {
-            Task { @MainActor in service?.didFail(id, error: error, resumeData: nil) }
+            let url = downloadTask.originalRequest?.url
+            Task { @MainActor in service?.didFail(id, error: error, resumeData: nil, failedURL: url) }
         }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard let error, let id = task.transferID else { return }
         let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+        let url = task.originalRequest?.url
         let service = self.service
-        Task { @MainActor in service?.didFail(id, error: error, resumeData: resumeData) }
+        Task { @MainActor in service?.didFail(id, error: error, resumeData: resumeData, failedURL: url) }
     }
 
     func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {

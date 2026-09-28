@@ -33,6 +33,15 @@ struct DebugInfoView: View {
                 }
             }
 
+            if !connection.alternates.isEmpty {
+                Section("Адреса Mac") {
+                    ForEach(connection.alternates, id: \.self) { url in
+                        LabeledContent(url.absoluteString,
+                                       value: Connection.route(for: url) ?? "")
+                    }
+                }
+            }
+
             if connection.isOnline {
                 Section {
                     Button {

@@ -36,9 +36,18 @@ public final class IPhoneServer: @unchecked Sendable {
     public func use(_ toolchain: Toolchain) { box.current = toolchain }
 
     public func start(port: UInt16, bind: BindAddress) throws {
+        if bind == .loopback {
+            backend.addressProvider = { ["127.0.0.1"] }
+        } else {
+            // Сначала домашний адрес, потом имя в Tailscale (по нему ходит iPhone), потом сам адрес 100.x.
+            backend.addressProvider = {
+                IPhoneServer.localAddresses() + IPhoneServer.tailnetNames() + IPhoneServer.tailnetAddresses()
+            }
+        }
         try backend.start(port: port, bind: bind,
                           addresses: bind == .loopback ? [] : Self.localAddresses())
     }
+
     public func stop() { backend.stop() }
 
     // MARK: - обновление движка
@@ -64,8 +73,70 @@ public final class IPhoneServer: @unchecked Sendable {
         (SCDynamicStoreCopyComputerName(nil, nil) as String?) ?? Host.current().localizedName ?? "Mac"
     }
 
+    /// Адреса этого Mac в Tailscale (100.64.0.0/10 на интерфейсе туннеля): по ним
+    /// iPhone достаёт Mac из любой сети, если Tailscale включён на обоих.
+    public static func tailnetAddresses() -> [String] {
+        interfaceAddresses().filter { $0.name.hasPrefix("utun") && isTailnet($0.address) }.map(\.address)
+    }
+
+    /// Имена этого Mac в Tailscale (MagicDNS), вида macbook-pro.tail1234.ts.net.
+    /// iPhone ходит по имени, а не по адресу 100.x: обычный HTTP на такие адреса iOS не пускает,
+    /// а для *.ts.net в приложении есть узкое исключение.
+    public static func tailnetNames() -> [String] {
+        tailnetAddresses().compactMap(tailnetName(for:))
+    }
+
+    private static let namesLock = NSLock()
+    nonisolated(unsafe) private static var names: [String: String] = [:]
+
+    /// Обратный запрос к DNS Tailscale; ответ запоминаем — имя устройства не меняется.
+    static func tailnetName(for address: String) -> String? {
+        namesLock.lock()
+        if let cached = names[address] { namesLock.unlock(); return cached }
+        namesLock.unlock()
+
+        var socketAddress = sockaddr_in()
+        socketAddress.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        socketAddress.sin_family = sa_family_t(AF_INET)
+        guard inet_pton(AF_INET, address, &socketAddress.sin_addr) == 1 else { return nil }
+        var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        let status = withUnsafePointer(to: &socketAddress) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                getnameinfo($0, socklen_t(MemoryLayout<sockaddr_in>.size), &host, socklen_t(host.count),
+                            nil, 0, NI_NAMEREQD)
+            }
+        }
+        guard status == 0 else { return nil }
+        let name = String(cString: host).trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        guard isTailnetName(name) else { return nil }
+        namesLock.lock(); names[address] = name; namesLock.unlock()
+        return name
+    }
+
+    public static func isTailnetName(_ host: String) -> Bool {
+        host.lowercased().hasSuffix(".ts.net")
+    }
+
+    /// 100.64.0.0/10 — диапазон, из которого Tailscale раздаёт адреса устройствам.
+    public static func isTailnet(_ address: String) -> Bool {
+        let parts = address.split(separator: ".").compactMap { Int($0) }
+        guard parts.count == 4 else { return false }
+        return parts[0] == 100 && (64...127).contains(parts[1])
+    }
+
     /// IPv4-адреса этого Mac в локальных сетях: их можно ввести на iPhone вручную.
     public static func localAddresses() -> [String] {
+        interfaceAddresses()
+            // Туннели VPN (utun) и служебные мосты iPhone всё равно не видит.
+            .filter { $0.name.hasPrefix("en") || $0.name.hasPrefix("bridge") }
+            .filter { !$0.address.hasPrefix("169.254.") }        // самоназначенный — связи нет
+            // en0 — обычно Wi-Fi или основной порт: показываем его первым.
+            .sorted { $0.name < $1.name }
+            .map(\.address)
+    }
+
+    /// Все IPv4-адреса поднятых интерфейсов, кроме петли.
+    private static func interfaceAddresses() -> [(name: String, address: String)] {
         var result: [(name: String, address: String)] = []
         var list: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&list) == 0, let first = list else { return [] }
@@ -76,19 +147,12 @@ public final class IPhoneServer: @unchecked Sendable {
             let flags = Int32(entry.ifa_flags)
             guard let address = entry.ifa_addr, address.pointee.sa_family == UInt8(AF_INET),
                   flags & IFF_UP != 0, flags & IFF_LOOPBACK == 0 else { continue }
-            let name = String(cString: entry.ifa_name)
-            // Туннели VPN (utun) и служебные мосты iPhone всё равно не видит.
-            guard name.hasPrefix("en") || name.hasPrefix("bridge") else { continue }
-
             var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
             guard getnameinfo(address, socklen_t(address.pointee.sa_len), &host, socklen_t(host.count),
                               nil, 0, NI_NUMERICHOST) == 0 else { continue }
-            let text = String(cString: host)
-            if text.hasPrefix("169.254.") { continue }          // самоназначенный — связи нет
-            result.append((name, text))
+            result.append((String(cString: entry.ifa_name), String(cString: host)))
         }
-        // en0 — обычно Wi-Fi или основной порт: показываем его первым.
-        return result.sorted { $0.name < $1.name }.map(\.address)
+        return result
     }
 }
 

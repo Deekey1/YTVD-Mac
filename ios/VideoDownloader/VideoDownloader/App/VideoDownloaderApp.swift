@@ -92,7 +92,6 @@ struct RootView: View {
 
     private func accept(_ link: URL) {
         tab = .download
-        download.text = link.absoluteString
-        download.resolve(connection: connection)
+        download.accept(link, connection: connection)
     }
 }

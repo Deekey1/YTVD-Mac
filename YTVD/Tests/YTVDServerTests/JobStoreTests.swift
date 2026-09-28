@@ -49,6 +49,18 @@ final class JobStoreTests: XCTestCase {
         XCTAssertEqual(video.thumbnail?.hasSuffix("/sddefault.jpg"), true, video.thumbnail ?? "нет обложки")
     }
 
+    /// Из «Поделиться» ссылка приходит дважды почти одновременно — yt-dlp должен отработать один раз.
+    func testConcurrentResolvesShareOneEngineRun() async throws {
+        let shared = FakeEngine.Shared(info: try Fixtures.youtube4K())
+        shared.resolveDelay = 200_000_000
+        let store = makeStore(shared)
+        async let first = store.resolve(url: url)
+        async let second = store.resolve(url: url)
+        let (a, b) = try await (first, second)
+        XCTAssertEqual(a, b)
+        XCTAssertEqual(shared.resolves, 1, "вторая копия ссылки ждёт первую, а не запускает разбор заново")
+    }
+
     func testInvalidURLIsRejectedBeforeEngine() async throws {
         let shared = FakeEngine.Shared(info: try Fixtures.youtube4K())
         let store = makeStore(shared)

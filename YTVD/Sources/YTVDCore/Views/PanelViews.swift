@@ -265,7 +265,7 @@ struct SettingsPanel: View {
                 SettingRow(title: "Доступ к серверу",
                            note: settings.serverBind == "loopback"
                                ? "Только с этого Mac — для проверки"
-                               : "iPhone в той же сети, по коду сопряжения") {
+                               : "Домашняя сеть и Tailscale, по коду сопряжения") {
                     Segmented(value: Binding(
                         get: { settings.serverBind == "loopback" ? 1 : 0 },
                         set: { server.setBind($0 == 1 ? "loopback" : "all", toolchain: model.toolchain) }),
@@ -280,6 +280,10 @@ struct SettingsPanel: View {
                     } else if server.isRunning {
                         MiniButton(title: "Показать код") { server.showCode() }
                     }
+                }
+                SettingRow(title: "Не давать Mac засыпать", note: server.keepAwakeNote) {
+                    BlockToggle(isOn: Binding(get: { settings.serverKeepAwake },
+                                              set: { server.setKeepAwake($0) }))
                 }
                 SettingRow(title: "Отключить все iPhone", note: "Каждому понадобится новый код") {
                     MiniButton(title: "Отключить") { server.revokeAll() }

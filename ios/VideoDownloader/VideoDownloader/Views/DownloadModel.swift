@@ -70,6 +70,20 @@ final class DownloadModel {
         }
     }
 
+    /// Ссылка снаружи. Из «Поделиться» она приходит двумя путями сразу — открытием
+    /// приложения и через общий ящик, — вторую копию той же ссылки пропускаем.
+    func accept(_ link: URL, connection: Connection) {
+        if Self.sameLink(link.absoluteString, text), state == .resolving || video != nil { return }
+        text = link.absoluteString
+        resolve(connection: connection)
+    }
+
+    static func sameLink(_ a: String, _ b: String) -> Bool {
+        guard let first = LinkDetector.firstSupportedURL(in: a),
+              let second = LinkDetector.firstSupportedURL(in: b) else { return false }
+        return first.absoluteString == second.absoluteString
+    }
+
     func clear() {
         resolveTask?.cancel()
         text = ""
