@@ -78,14 +78,85 @@ public enum EngineUpdater {
 
     // MARK: - установка
 
+    /// Распакованная сборка yt-dlp (onedir). Однофайловая при каждом запуске распаковывает
+    /// Python во временную папку, и macOS заново проверяет его библиотеки — 6–8 секунд
+    /// на любой вызов. Распакованную macOS проверяет один раз, дальше — доли секунды.
     public static let ytdlpURL = URL(
-        string: "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos")!
+        string: "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos.zip")!
+
+    /// Исполняемый файл в сборке и начало имени её папки: во встроенной — yt-dlp_macos,
+    /// у скачанных — yt-dlp_macos-<версия>. bin/yt-dlp — ссылка на исполняемый файл.
+    static let ytdlpFolder = "yt-dlp_macos"
 
     /// Ставит свежий yt-dlp рядом с настройками приложения.
     @discardableResult
     public static func installYtDlp(onProgress: @escaping @Sendable (Double) -> Void = { _ in })
     async throws -> URL {
-        try await install(from: ytdlpURL, name: "yt-dlp", onProgress: onProgress)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let (temporary, response) = try await URLSession.shared.download(from: ytdlpURL)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw YTVDError.network("Сервер вернул код \(http.statusCode)")
+        }
+        onProgress(0.7)
+
+        let unpacked = directory.appendingPathComponent("unpack-yt-dlp")
+        try? FileManager.default.removeItem(at: unpacked)
+        try FileManager.default.createDirectory(at: unpacked, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: unpacked) }
+        let archive = unpacked.appendingPathComponent("\(ytdlpFolder).zip")
+        try FileManager.default.moveItem(at: temporary, to: archive)
+        let bundle = unpacked.appendingPathComponent(ytdlpFolder)
+        try await runDitto(archive: archive, into: bundle)
+        onProgress(0.85)
+
+        let installed = try await activateYtDlp(bundle, in: directory)
+        onProgress(1)
+        return installed
+    }
+
+    /// Ставит распакованную сборку на место: убеждается, что она запускается, кладёт её
+    /// в свою папку yt-dlp_macos-<версия> и направляет на неё ссылку bin/yt-dlp — её и
+    /// находит BinaryLocator. Однофайловый yt-dlp на месте ссылки заменяется ею.
+    ///
+    /// Прежнюю сборку не удаляем до следующего обновления: ею может ещё качать начатое
+    /// задание, а распакованный yt-dlp подгружает свои части из папки по ходу работы.
+    static func activateYtDlp(_ bundle: URL, in directory: URL) async throws -> URL {
+        let files = FileManager.default
+        let executable = bundle.appendingPathComponent(ytdlpFolder)
+        guard files.isExecutableFile(atPath: executable.path) else {
+            throw YTVDError.network("В архиве нет \(ytdlpFolder)")
+        }
+        // Первый запуск заодно даёт macOS проверить библиотеки: дальше yt-dlp стартует быстро.
+        let check = try await ProcessRunner.run(executable, ["--version"])
+        guard check.succeeded else { throw YTVDError.network("Скачанный yt-dlp не запускается") }
+
+        try files.createDirectory(at: directory, withIntermediateDirectories: true)
+        let version = check.stdout.filter { $0.isNumber || $0 == "." }
+        var folder = "\(ytdlpFolder)-\(version.isEmpty ? "new" : version)"
+        if files.fileExists(atPath: directory.appendingPathComponent(folder).path) {
+            folder += "-\(UUID().uuidString.prefix(8))"
+        }
+        try files.moveItem(at: bundle, to: directory.appendingPathComponent(folder))
+
+        // Новую ссылку кладём рядом и переименовываем поверх старой: rename(2) атомарен,
+        // и bin/yt-dlp не пропадает ни на миг.
+        let link = directory.appendingPathComponent("yt-dlp")
+        let previous = (try? files.destinationOfSymbolicLink(atPath: link.path))?
+            .split(separator: "/").first.map(String.init)
+        let staged = directory.appendingPathComponent(".yt-dlp-\(UUID().uuidString)")
+        try files.createSymbolicLink(atPath: staged.path, withDestinationPath: "\(folder)/\(ytdlpFolder)")
+        guard rename(staged.path, link.path) == 0 else {
+            try? files.removeItem(at: staged)
+            throw YTVDError.network("Не удалось поставить yt-dlp на место")
+        }
+
+        // Держим только новую и предыдущую сборки.
+        let keep = Set([folder, previous].compactMap { $0 })
+        for name in (try? files.contentsOfDirectory(atPath: directory.path)) ?? []
+        where name.hasPrefix(ytdlpFolder) && !keep.contains(name) {
+            try? files.removeItem(at: directory.appendingPathComponent(name))
+        }
+        return link
     }
 
     /// Статическая сборка ffmpeg под текущую архитектуру.
@@ -153,6 +224,13 @@ public enum EngineUpdater {
         let result = try await ProcessRunner.run(
             URL(fileURLWithPath: "/usr/bin/unzip"),
             ["-qo", archive.path, "-d", directory.path])
+        guard result.succeeded else { throw YTVDError.network("Не удалось распаковать архив") }
+    }
+
+    /// ditto, а не unzip: в сборке yt-dlp есть ссылки внутри Python.framework.
+    private static func runDitto(archive: URL, into directory: URL) async throws {
+        let result = try await ProcessRunner.run(
+            URL(fileURLWithPath: "/usr/bin/ditto"), ["-x", "-k", archive.path, directory.path])
         guard result.succeeded else { throw YTVDError.network("Не удалось распаковать архив") }
     }
 }

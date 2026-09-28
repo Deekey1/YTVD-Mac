@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
-VERSION="${1:-1.3.1}"
+VERSION="${1:-1.3.2}"
 STAGE="$ROOT/.build/dmg"
 DMG="$ROOT/dist/YTVD-$VERSION.dmg"
 

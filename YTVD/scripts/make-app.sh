@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 BUILD="$ROOT/.build"
 APP="$ROOT/dist/YTVD.app"
-VERSION="${YTVD_VERSION:-1.3.1}"
+VERSION="${YTVD_VERSION:-1.3.2}"
 
 echo "▸ Сборка релиза"
 # Универсальный бинарник: пойдёт и на Apple Silicon, и на Intel.
@@ -35,9 +35,10 @@ cp "$BINARY" "$APP/Contents/MacOS/YTVD"
 cp "$BUILD/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 # Приложение ищет движок здесь в первую очередь — см. BinaryLocator.bundledDirectory.
 if [[ -d "$BUILD/bin" ]]; then
-  mkdir -p "$APP/Contents/Resources/bin"
-  cp "$BUILD/bin"/* "$APP/Contents/Resources/bin/"
-  chmod +x "$APP/Contents/Resources/bin"/*
+  # ditto, а не cp: yt-dlp — папка со ссылкой bin/yt-dlp на исполняемый файл внутри.
+  # cp без -R папку пропустил бы, а ссылку превратил бы в копию, которой не найти _internal.
+  ditto "$BUILD/bin" "$APP/Contents/Resources/bin"
+  find "$APP/Contents/Resources/bin" -maxdepth 1 -type f -exec chmod +x {} +
 fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -68,9 +69,10 @@ PLIST
 cat > "$APP/Contents/PkgInfo" <<< "APPL????"
 
 echo "▸ Подпись (ad-hoc)"
-# Вложенные исполняемые файлы подписываем раньше самого бандла.
+# Вложенные исполняемые файлы подписываем раньше самого бандла. Ссылки пропускаем:
+# сборка yt-dlp уже подписана целиком, и переподписывать её по одному файлу незачем.
 for tool in "$APP/Contents/Resources/bin/"*; do
-  [[ -f "$tool" ]] && codesign --force --sign - --timestamp=none "$tool" >/dev/null 2>&1 || true
+  [[ -f "$tool" && ! -L "$tool" ]] && codesign --force --sign - --timestamp=none "$tool" >/dev/null 2>&1 || true
 done
 codesign --force --sign - --timestamp=none "$APP" >/dev/null 2>&1 || \
   echo "  предупреждение: подписать не удалось, приложение всё равно запустится локально"

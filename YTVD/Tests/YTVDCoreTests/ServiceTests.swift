@@ -278,6 +278,111 @@ final class EngineUpdaterTests: XCTestCase {
         XCTAssertEqual(BinaryLocator.searchDirectories().first, EngineUpdater.directory,
                        "скачанное обновление важнее и встроенного, и системного")
     }
+
+    /// Распакованная сборка встаёт на место старого однофайлового yt-dlp: bin/yt-dlp — ссылка
+    /// на исполняемый файл в папке сборки, и приложение находит его по прежнему имени.
+    func testOnedirBuildReplacesOnefileAndIsFound() async throws {
+        let root = makeTemporaryDirectory()
+        let bin = root.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try "старый однофайловый".write(to: bin.appendingPathComponent("yt-dlp"), atomically: true, encoding: .utf8)
+        let bundle = try fakeOnedir(in: root, version: "2099.01.02")
+
+        let installed = try await EngineUpdater.activateYtDlp(bundle, in: bin)
+
+        XCTAssertEqual(installed.lastPathComponent, "yt-dlp")
+        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: installed.path),
+                       "yt-dlp_macos-2099.01.02/yt-dlp_macos", "ссылка относительная — папку можно переносить")
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: bin.appendingPathComponent("yt-dlp_macos-2099.01.02/_internal").path),
+                      "библиотеки лежат рядом с исполняемым файлом")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: bundle.path), "распакованное перенесено, а не скопировано")
+        XCTAssertEqual(BinaryLocator.find("yt-dlp", in: [bin])?.path, installed.path)
+        let output = try await ProcessRunner.run(installed, ["--version"])
+        XCTAssertEqual(output.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "2099.01.02")
+    }
+
+    /// Обновление переключает ссылку на новую сборку, а предыдущую не трогает: ею может ещё
+    /// качать начатое задание. Следующее обновление убирает ту, что старше предыдущей.
+    func testUpdateKeepsPreviousBuildUntilTheNextOne() async throws {
+        let root = makeTemporaryDirectory()
+        let bin = root.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        func builds() throws -> Set<String> {
+            Set(try FileManager.default.contentsOfDirectory(atPath: bin.path).filter { $0.hasPrefix("yt-dlp_macos") })
+        }
+        _ = try await EngineUpdater.activateYtDlp(try fakeOnedir(in: root, name: "a", version: "2099.01.01"), in: bin)
+        let installed = try await EngineUpdater.activateYtDlp(
+            try fakeOnedir(in: root, name: "b", version: "2099.02.02"), in: bin)
+
+        let output = try await ProcessRunner.run(installed, ["--version"])
+        XCTAssertEqual(output.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "2099.02.02")
+        XCTAssertEqual(try builds(), ["yt-dlp_macos-2099.01.01", "yt-dlp_macos-2099.02.02"])
+
+        _ = try await EngineUpdater.activateYtDlp(try fakeOnedir(in: root, name: "c", version: "2099.03.03"), in: bin)
+        XCTAssertEqual(try builds(), ["yt-dlp_macos-2099.02.02", "yt-dlp_macos-2099.03.03"])
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: bin.path).contains { $0.hasPrefix(".yt-dlp-") },
+                       "временная ссылка не остаётся")
+    }
+
+    /// Та же версия ещё раз (переустановка) — рядом, в своей папке, а ссылка на новую.
+    func testReinstallingSameVersionGetsItsOwnFolder() async throws {
+        let root = makeTemporaryDirectory()
+        let bin = root.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        _ = try await EngineUpdater.activateYtDlp(try fakeOnedir(in: root, name: "a", version: "2099.01.01"), in: bin)
+        let installed = try await EngineUpdater.activateYtDlp(
+            try fakeOnedir(in: root, name: "b", version: "2099.01.01"), in: bin)
+
+        let destination = try FileManager.default.destinationOfSymbolicLink(atPath: installed.path)
+        XCTAssertTrue(destination.hasPrefix("yt-dlp_macos-2099.01.01-"), destination)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: bin.appendingPathComponent("yt-dlp_macos-2099.01.01").path))
+    }
+
+    /// Скачанная сборка не запускается — прежняя остаётся как была.
+    func testBrokenBuildKeepsPreviousOne() async throws {
+        let root = makeTemporaryDirectory()
+        let bin = root.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        _ = try await EngineUpdater.activateYtDlp(try fakeOnedir(in: root, name: "good", version: "2099.01.01"), in: bin)
+
+        do {
+            _ = try await EngineUpdater.activateYtDlp(
+                try fakeOnedir(in: root, name: "broken", version: "", exitCode: 1), in: bin)
+            XCTFail("сломанная сборка не должна встать на место")
+        } catch {}
+
+        let output = try await ProcessRunner.run(bin.appendingPathComponent("yt-dlp"), ["--version"])
+        XCTAssertEqual(output.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "2099.01.01")
+    }
+
+    func testArchiveWithoutExecutableIsRejected() async throws {
+        let root = makeTemporaryDirectory()
+        let empty = root.appendingPathComponent("yt-dlp_macos")
+        try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
+        do {
+            _ = try await EngineUpdater.activateYtDlp(empty, in: root.appendingPathComponent("bin"))
+            XCTFail("без исполняемого файла ставить нечего")
+        } catch {}
+    }
+
+    /// Папка как в yt-dlp_macos.zip: исполняемый файл и _internal рядом. Вместо Python — скрипт.
+    private func fakeOnedir(in root: URL, name: String = "unpacked", version: String,
+                            exitCode: Int = 0) throws -> URL {
+        let bundle = root.appendingPathComponent(name).appendingPathComponent("yt-dlp_macos")
+        try FileManager.default.createDirectory(at: bundle.appendingPathComponent("_internal"),
+                                                withIntermediateDirectories: true)
+        let executable = bundle.appendingPathComponent("yt-dlp_macos")
+        try "#!/bin/sh\necho \(version)\nexit \(exitCode)\n".write(to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        return bundle
+    }
+
+    private func makeTemporaryDirectory() -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("ytvd-engine-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
 }
 
 /// Обновление самой программы: сравнение версий и разбор ответа GitHub.

@@ -24,8 +24,11 @@ case "$ARCH" in
   *) echo "неизвестная архитектура: $ARCH" >&2; exit 1 ;;
 esac
 
-# yt-dlp собран универсальным — годится обеим архитектурам.
-YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+# yt-dlp собран универсальным — годится обеим архитектурам. Берём распакованную сборку
+# (onedir), а не однофайловую: та при каждом запуске заново распаковывает Python во
+# временную папку, и macOS заново проверяет его библиотеки — 6–8 секунд на любой вызов.
+# Распакованная проверяется один раз, дальше запускается за доли секунды.
+YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos.zip"
 
 mkdir -p "$CACHE" "$DEST"
 
@@ -54,14 +57,19 @@ unpack() {
 }
 
 echo "▸ Движок для $ARCH"
-fetch "$YTDLP_URL" "yt-dlp"
+fetch "$YTDLP_URL" "yt-dlp_macos.zip"
 fetch "$DENO_URL" "deno.zip"
 fetch "$FFMPEG_URL" "ffmpeg.zip"
 
-cp "$CACHE/yt-dlp" "$DEST/yt-dlp"
+# yt-dlp — папка целиком (исполняемый файл и _internal рядом), а bin/yt-dlp — ссылка на него:
+# приложение по-прежнему ищет bin/yt-dlp. ditto сохраняет ссылки внутри Python.framework.
+rm -rf "$DEST/yt-dlp_macos" "$DEST/yt-dlp"
+ditto -x -k "$CACHE/yt-dlp_macos.zip" "$DEST/yt-dlp_macos"
+[[ -x "$DEST/yt-dlp_macos/yt-dlp_macos" ]] || { echo "в yt-dlp_macos.zip нет yt-dlp_macos" >&2; exit 1; }
+ln -s yt-dlp_macos/yt-dlp_macos "$DEST/yt-dlp"
 unpack "deno.zip" "deno"
 unpack "ffmpeg.zip" "ffmpeg"
-chmod +x "$DEST"/{yt-dlp,deno,ffmpeg}
+chmod +x "$DEST"/{deno,ffmpeg}
 
 # Скачанное из интернета помечено карантином — снимаем, иначе macOS не даст запустить.
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
