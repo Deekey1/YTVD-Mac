@@ -35,7 +35,10 @@ public final class IPhoneServer: @unchecked Sendable {
     /// Mac-приложение обновило или нашло инструменты — новые задания пойдут уже с ними.
     public func use(_ toolchain: Toolchain) { box.current = toolchain }
 
-    public func start(port: UInt16, bind: BindAddress) throws { try backend.start(port: port, bind: bind) }
+    public func start(port: UInt16, bind: BindAddress) throws {
+        try backend.start(port: port, bind: bind,
+                          addresses: bind == .loopback ? [] : Self.localAddresses())
+    }
     public func stop() { backend.stop() }
 
     // MARK: - обновление движка

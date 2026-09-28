@@ -42,10 +42,15 @@ public final class BackendServer: @unchecked Sendable {
     /// iPhone ввёл верный код — окно на Mac может убрать код и сказать, кто подключился.
     public var onPaired: (@Sendable (String) -> Void)?
 
-    public func start(port: UInt16, bind: BindAddress) throws {
+    /// addresses — адреса Mac в домашней сети: их объявляем в Bonjour, чтобы iPhone не угадывал
+    /// среди служебных (169.254.*, мосты, VPN), куда подключаться.
+    public func start(port: UInt16, bind: BindAddress, addresses: [String] = []) throws {
         stop()
+        var txt = ["api": API.version, "app": appVersion]
+        if !addresses.isEmpty { txt["ip"] = addresses.prefix(4).joined(separator: ",") }
+        if port != 0 { txt["port"] = String(port) }
         let server = HTTPServer(port: port, bind: bind, bonjourName: name,
-                                bonjourTXT: ["api": API.version, "app": appVersion]) { [weak self] request in
+                                bonjourTXT: txt) { [weak self] request in
             guard let self else { return .error(503, .serverError) }
             return await self.handle(request)
         }

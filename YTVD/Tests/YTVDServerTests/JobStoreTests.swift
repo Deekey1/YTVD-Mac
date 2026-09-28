@@ -39,6 +39,16 @@ final class JobStoreTests: XCTestCase {
         XCTAssertEqual(shared.resolves, 1, "повторный разбор той же ссылки берётся из памяти")
     }
 
+    /// У многих роликов нет maxresdefault и hq720 — берём лучшую из живых, а не первую из списка.
+    func testThumbnailSkipsMissingSizes() async throws {
+        let shared = FakeEngine.Shared(info: try Fixtures.youtube4K())
+        let store = JobStore(config: .init(directory: Fixtures.temporaryDirectory()),
+                             makeEngine: { FakeEngine(shared) }, freeSpace: { _ in nil },
+                             thumbnailProbe: { $0.contains("hqdefault") || $0.contains("sddefault") })
+        let video = try await store.resolve(url: url)
+        XCTAssertEqual(video.thumbnail?.hasSuffix("/sddefault.jpg"), true, video.thumbnail ?? "нет обложки")
+    }
+
     func testInvalidURLIsRejectedBeforeEngine() async throws {
         let shared = FakeEngine.Shared(info: try Fixtures.youtube4K())
         let store = makeStore(shared)
@@ -190,6 +200,13 @@ final class JobStoreTests: XCTestCase {
         Task { try await Task.sleep(nanoseconds: 300_000_000); shared.released = true }
         let finished = await store.waitUntilFinished(job.jobId, timeout: 10)
         XCTAssertEqual(finished?.status, .ready)
+    }
+
+    func testAdviceNamesTheMac() {
+        let body = JobStore.apiError(from: YTVDError.tool(
+            "YouTube требует подтвердить, что вы не робот. Включите в настройках «Брать cookies из браузера» — обычно этого хватает."))
+        XCTAssertEqual(body.code, APIErrorCode.authenticationRequired.rawValue)
+        XCTAssertTrue(body.message.contains("на Mac в настройках YTVD"), "на iPhone таких настроек нет")
     }
 
     func testErrorMapping() {

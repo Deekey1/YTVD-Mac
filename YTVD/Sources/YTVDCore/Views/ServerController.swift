@@ -24,14 +24,17 @@ public final class ServerController: ObservableObject {
     var onToolchainChange: ((Toolchain) -> Void)?
 
     private let settings: AppSettings
+    /// Где сервер хранит токен и задания. В тестах — временный каталог, чтобы не трогать настоящий токен.
+    private let directory: URL
     private var server: IPhoneServer?
     private var codeExpires: Date?
     private var timer: Timer?
 
     public static let codeLifetime: TimeInterval = 300
 
-    init(settings: AppSettings) {
+    init(settings: AppSettings, directory: URL = IPhoneServer.defaultDirectory) {
         self.settings = settings
+        self.directory = directory
     }
 
     // MARK: - включение
@@ -64,7 +67,7 @@ public final class ServerController: ObservableObject {
     }
 
     private func start(toolchain: Toolchain) {
-        let instance = IPhoneServer(toolchain: toolchain, appVersion: AppUpdater.currentVersion)
+        let instance = IPhoneServer(toolchain: toolchain, appVersion: AppUpdater.currentVersion, directory: directory)
         instance.backend.onStateChange = { [weak self] state in
             Task { @MainActor in self?.update(state) }
         }

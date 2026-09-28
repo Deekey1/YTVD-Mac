@@ -1,0 +1,10 @@
+// Подпись для установки на свой iPhone.
+//
+// DEVELOPMENT_TEAM — Team ID из Xcode → Settings → Accounts (подойдёт и бесплатный
+// личный Apple ID). Можно не трогать этот файл, а выбрать команду во вкладке
+// Signing & Capabilities у обеих целей: VideoDownloader и VideoDownloaderShare.
+//
+// BUNDLE_ID_PREFIX — если Xcode скажет, что идентификатор занят, впишите сюда
+// что-то своё, например com.ivanov. Из него же собирается App Group.
+DEVELOPMENT_TEAM =
+BUNDLE_ID_PREFIX = studio.dk

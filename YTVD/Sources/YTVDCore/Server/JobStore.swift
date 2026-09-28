@@ -119,12 +119,20 @@ public actor JobStore {
         return entry
     }
 
-    /// Первая обложка, которая реально открывается: у старых роликов лучшей может не быть.
+    /// Лучшая обложка из тех, что реально открываются: у многих роликов нет ни maxresdefault,
+    /// ни hq720 — а это первые четыре кандидата. Проверяем разом, по времени это одна проверка.
     private func workingThumbnail(_ candidates: [String]) async -> String? {
-        for candidate in candidates.prefix(4) where await thumbnailProbe(candidate) {
-            return candidate
+        let list = Array(candidates.prefix(10))
+        let probe = thumbnailProbe
+        let alive = await withTaskGroup(of: (Int, Bool).self) { group in
+            for (index, url) in list.enumerated() {
+                group.addTask { (index, await probe(url)) }
+            }
+            var found: [Int] = []
+            for await (index, ok) in group where ok { found.append(index) }
+            return found
         }
-        return candidates.first
+        return alive.min().map { list[$0] } ?? candidates.first
     }
 
     // MARK: - задания
@@ -436,7 +444,12 @@ public actor JobStore {
                 ("не поддерживается", .invalidUrl),
             ]
             let code = rules.first { lowered.contains($0.0) }?.1 ?? .serverError
-            return APIErrorBody(code, message)
+            return APIErrorBody(code, forPhone(message))
         }
+    }
+
+    /// Тексты общие с окном YTVD, а читают их на iPhone: «в настройках» — это настройки на Mac.
+    static func forPhone(_ message: String) -> String {
+        message.replacingOccurrences(of: "в настройках", with: "на Mac в настройках YTVD")
     }
 }
