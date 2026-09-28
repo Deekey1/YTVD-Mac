@@ -60,10 +60,10 @@ yt-dlp + ffmpeg + deno  →  YouTube, Vimeo, Rutube, VK Видео
 ## Поставить приложение на iPhone
 
 1. Открыть в Xcode `ios/VideoDownloader/VideoDownloader.xcodeproj`.
-2. Подпись: вписать Team ID в `ios/VideoDownloader/Config/Signing.xcconfig`
-   (`DEVELOPMENT_TEAM = …`) или выбрать команду на вкладке *Signing & Capabilities*
-   у обеих целей — **VideoDownloader** и **VideoDownloaderShare**. Если Xcode скажет, что
-   идентификатор занят, поменяйте там же `BUNDLE_ID_PREFIX`.
+2. Подпись: создать рядом с `ios/VideoDownloader/Config/Signing.xcconfig` файл
+   `Signing.local.xcconfig` со строкой `DEVELOPMENT_TEAM = <ваш Team ID>` — git его
+   не видит, так что команда не попадёт в репозиторий. Если Xcode скажет, что
+   идентификатор занят, впишите туда же `BUNDLE_ID_PREFIX = что-то.своё`.
 3. Подключить iPhone кабелем, выбрать его в Xcode и нажать Run. На iPhone один раз:
    Настройки → Конфиденциальность и безопасность → **Режим разработчика**, затем
    Основные → VPN и управление устройством → доверять своему сертификату.

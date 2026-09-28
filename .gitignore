@@ -13,3 +13,6 @@ DerivedData/
 
 # Локальные настройки инструментов
 .claude/settings.local.json
+
+# Личная команда подписи для iPhone
+ios/VideoDownloader/Config/Signing.local.xcconfig

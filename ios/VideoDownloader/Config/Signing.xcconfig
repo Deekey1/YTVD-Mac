@@ -1,10 +1,12 @@
 // Подпись для установки на свой iPhone.
 //
-// DEVELOPMENT_TEAM — Team ID из Xcode → Settings → Accounts (подойдёт и бесплатный
-// личный Apple ID). Можно не трогать этот файл, а выбрать команду во вкладке
-// Signing & Capabilities у обеих целей: VideoDownloader и VideoDownloaderShare.
+// Свои значения впишите в Signing.local.xcconfig рядом (git его не видит):
+//   DEVELOPMENT_TEAM = ABCDE12345
+// Team ID — в Xcode → Settings → Accounts (подойдёт и бесплатный личный Apple ID).
 //
-// BUNDLE_ID_PREFIX — если Xcode скажет, что идентификатор занят, впишите сюда
+// BUNDLE_ID_PREFIX — если Xcode скажет, что идентификатор занят, впишите туда же
 // что-то своё, например com.ivanov. Из него же собирается App Group.
 DEVELOPMENT_TEAM =
 BUNDLE_ID_PREFIX = studio.dk
+
+#include? "Signing.local.xcconfig"

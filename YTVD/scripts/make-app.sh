@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 BUILD="$ROOT/.build"
 APP="$ROOT/dist/YTVD.app"
-VERSION="${YTVD_VERSION:-1.2}"
+VERSION="${YTVD_VERSION:-1.3}"
 
 echo "▸ Сборка релиза"
 # Универсальный бинарник: пойдёт и на Apple Silicon, и на Intel.
