@@ -11,6 +11,7 @@
 		7A0000000000000000000051 /* YTVDAPI in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000091 /* YTVDAPI */; };
 		7A0000000000000000000052 /* YTVDAPI in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000092 /* YTVDAPI */; };
 		7A0000000000000000000053 /* YTVDAPI in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000093 /* YTVDAPI */; };
+		7A0000000000000000000054 /* YTVDIcons in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000094 /* YTVDIcons */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,6 +85,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7A0000000000000000000051 /* YTVDAPI in Frameworks */,
+				7A0000000000000000000054 /* YTVDIcons in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -164,6 +166,7 @@
 			name = VideoDownloader;
 			packageProductDependencies = (
 				7A0000000000000000000091 /* YTVDAPI */,
+				7A0000000000000000000094 /* YTVDIcons */,
 			);
 			productName = VideoDownloader;
 			productReference = 7A0000000000000000000020 /* VideoDownloader.app */;
@@ -597,6 +600,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7A0000000000000000000090 /* XCLocalSwiftPackageReference "../../YTVD" */;
 			productName = YTVDAPI;
+		};
+		7A0000000000000000000094 /* YTVDIcons */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7A0000000000000000000090 /* XCLocalSwiftPackageReference "../../YTVD" */;
+			productName = YTVDIcons;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

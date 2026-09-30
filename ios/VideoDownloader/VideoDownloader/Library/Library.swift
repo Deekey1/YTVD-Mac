@@ -10,12 +10,14 @@ enum Persistence {
         // Место указываем явно: иначе SwiftData уносит базу в общий контейнер App Group,
         // а расширению «Поделиться» она не нужна.
         LibraryFiles.prepare()
+        // Плейлисты и поле «Избранное» появились позже: SwiftData дописывает их в прежнюю
+        // базу сама — новая сущность и поле со значением по умолчанию.
         let configuration = ModelConfiguration(
-            schema: Schema([VideoItem.self]),
+            schema: Schema([VideoItem.self, Playlist.self]),
             url: LibraryFiles.root.appendingPathComponent("Library.store"),
             cloudKitDatabase: .none)
         do {
-            return try ModelContainer(for: VideoItem.self, configurations: configuration)
+            return try ModelContainer(for: VideoItem.self, Playlist.self, configurations: configuration)
         } catch {
             fatalError("Не открылась библиотека: \(error)")
         }
@@ -44,13 +46,32 @@ enum Library {
         return try? context.fetch(descriptor).first
     }
 
-    /// Удаляет запись вместе с файлом и обложкой.
-    static func delete(_ item: VideoItem, in context: ModelContext) {
+    /// Удаляет запись вместе с файлом и обложкой, убирает видео из плейлистов
+    /// и забывает место, где остановился просмотр.
+    static func delete(_ item: VideoItem, in context: ModelContext,
+                       positions: PlaybackPositions = .shared) {
         let fm = FileManager.default
         try? fm.removeItem(at: item.fileURL)
         if let thumbnail = item.thumbnailURL { try? fm.removeItem(at: thumbnail) }
         log.info("удалено видео \(item.id.uuidString, privacy: .public)")
+        Playlists.forget(item.id, in: context)
+        positions.clear(item.id)
         context.delete(item)
+        try? context.save()
+    }
+
+    /// Тот же ролик скачан в другом качестве и заменяет прежний. Новая запись наследует
+    /// «Избранное», место в плейлистах и позицию просмотра — время у ролика то же.
+    static func replace(_ previous: VideoItem, with item: VideoItem, in context: ModelContext,
+                        positions: PlaybackPositions = .shared) {
+        if previous.isFavorite { item.isFavorite = true }
+        Playlists.substitute(previous.id, with: item.id, in: context)
+        positions.move(from: previous.id, to: item.id)
+        delete(previous, in: context, positions: positions)
+    }
+
+    static func setFavorite(_ item: VideoItem, _ favorite: Bool, in context: ModelContext) {
+        item.isFavorite = favorite
         try? context.save()
     }
 

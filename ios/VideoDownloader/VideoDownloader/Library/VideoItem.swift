@@ -23,11 +23,13 @@ final class VideoItem {
     var sourceURL: String
     var platform: String
     var downloadedAt: Date
+    /// «Избранное». Значение по умолчанию нужно SwiftData, чтобы дописать поле в прежнюю базу.
+    var isFavorite: Bool = false
 
     init(id: UUID = UUID(), videoId: String, title: String, channel: String?, duration: Double?,
          width: Int?, height: Int?, fps: Int?, formatLabel: String, codec: String, isAudioOnly: Bool,
          fileName: String, thumbnailName: String?, fileSize: Int64, sourceURL: String,
-         platform: String, downloadedAt: Date = Date()) {
+         platform: String, downloadedAt: Date = Date(), isFavorite: Bool = false) {
         self.id = id
         self.videoId = videoId
         self.title = title
@@ -45,6 +47,7 @@ final class VideoItem {
         self.sourceURL = sourceURL
         self.platform = platform
         self.downloadedAt = downloadedAt
+        self.isFavorite = isFavorite
     }
 
     var fileURL: URL { LibraryFiles.videos.appendingPathComponent(fileName) }

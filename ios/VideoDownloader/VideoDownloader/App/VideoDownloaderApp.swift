@@ -1,6 +1,7 @@
 import SwiftData
 import SwiftUI
 import UIKit
+import YTVDIcons
 
 @main
 struct VideoDownloaderApp: App {
@@ -11,6 +12,8 @@ struct VideoDownloaderApp: App {
             RootView()
                 .environment(Connection.shared)
                 .environment(TransferService.shared)
+                .environment(PlaybackPositions.shared)
+                .tint(Theme.blue)
         }
         .modelContainer(Persistence.container)
     }
@@ -21,6 +24,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         Prefs.register()
+        Theme.applyAppearance()
         // Подключаемся к фоновой сессии как можно раньше: система могла разбудить
         // приложение без окна только ради того, чтобы отдать скачанный файл.
         _ = TransferService.shared
@@ -39,28 +43,70 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
 enum AppTab: Hashable {
     case download, library, settings
+
+    static let bar: [(tab: AppTab, icon: Icon, title: String)] = [
+        (tab: .download, icon: .download, title: "Скачать"),
+        (tab: .library, icon: .video, title: "Библиотека"),
+        (tab: .settings, icon: .settings, title: "Настройки"),
+    ]
+}
+
+private struct TabSelectionKey: EnvironmentKey {
+    static let defaultValue: Binding<AppTab>? = nil
+}
+
+extension EnvironmentValues {
+    /// Какая вкладка выбрана — нужна панели, которая стоит внутри экранов.
+    var tabSelection: Binding<AppTab>? {
+        get { self[TabSelectionKey.self] }
+        set { self[TabSelectionKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Своя нижняя панель. Ставится в корень экрана внутри NavigationStack и на вложенные
+    /// экраны: отступ, заданный снаружи стека, до его содержимого не доходит.
+    func ytvdTabBar() -> some View { modifier(TabBarModifier()) }
+}
+
+private struct TabBarModifier: ViewModifier {
+    @Environment(\.tabSelection) private var selection
+
+    func body(content: Content) -> some View {
+        content
+            .toolbar(.hidden, for: .tabBar)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if let selection { BottomTabBar(selection: selection, items: AppTab.bar) }
+            }
+    }
 }
 
 struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(Connection.self) private var connection
     @Environment(TransferService.self) private var transfers
+    @Environment(\.modelContext) private var context
     @State private var tab: AppTab = .download
     @State private var download = DownloadModel()
     @State private var restored = false
 
     var body: some View {
+        // Системный TabView оставляем ради поведения (вкладка открывается, только когда
+        // её выбрали), а панель рисуем свою — как иконки в шапке YTVD на Mac. Панель стоит
+        // внутри каждой вкладки: отступ снизу от внешнего safeAreaInset до вкладок не доходит.
         TabView(selection: $tab) {
             DownloadView(model: download)
-                .tabItem { Label("Скачать", systemImage: "arrow.down.circle") }
+                .toolbar(.hidden, for: .tabBar)
                 .tag(AppTab.download)
             LibraryView()
-                .tabItem { Label("Библиотека", systemImage: "film.stack") }
+                .toolbar(.hidden, for: .tabBar)
                 .tag(AppTab.library)
             SettingsView()
-                .tabItem { Label("Настройки", systemImage: "gearshape") }
+                .toolbar(.hidden, for: .tabBar)
                 .tag(AppTab.settings)
         }
+        .environment(\.tabSelection, $tab)
+        .background(Theme.bg.ignoresSafeArea())
         .onOpenURL { url in
             if let link = SharedInbox.link(fromDeepLink: url) { accept(link) }
         }
@@ -81,6 +127,14 @@ struct RootView: View {
             if !restored {
                 restored = true
                 await transfers.restore()
+                #if DEBUG
+                if DemoData.isEnabled {
+                    connection.showDemoOnline()
+                    DemoData.seed(context)
+                    download.showDemo(DemoData.video)
+                    transfers.injectDemo(DemoData.transfer)
+                }
+                #endif
             } else {
                 transfers.startPolling()
             }

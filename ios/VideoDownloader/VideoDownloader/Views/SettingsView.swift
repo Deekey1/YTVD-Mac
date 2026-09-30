@@ -1,7 +1,9 @@
 import SwiftUI
 import YTVDAPI
+import YTVDIcons
 
 /// Настройки: какой Mac, сопряжение, качество по умолчанию, поведение загрузок.
+/// Устроены как панель настроек YTVD на Mac: строки с описанием слева и переключателем справа.
 struct SettingsView: View {
     @Environment(Connection.self) private var connection
     @State private var browser = ServerBrowser()
@@ -17,81 +19,23 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    ServerStatusRow()
-                    if connection.serverURL != nil {
-                        Button(connection.isPaired ? "Сопрячь заново" : "Ввести код сопряжения") { pairing = true }
-                        Button("Проверить соединение") { Task { await connection.check() } }
+            VStack(spacing: 0) {
+                ScreenHeader(title: "Настройки")
+                ScrollView {
+                    VStack(spacing: 0) {
+                        macSection
+                        foundSection
+                        manualSection
+                        downloadSection
+                        otherSection
                     }
-                } header: {
-                    Text("Mac")
-                } footer: {
-                    if connection.isPaired {
-                        Text(connection.reachableAway
-                             ? "Вне дома приложение само переключится на Tailscale — держите его на iPhone включённым (в приложении Tailscale: VPN On Demand)."
-                             : "Чтобы качать вне дома, поставьте Tailscale на Mac и на iPhone под одной учётной записью.")
-                    }
-                }
-
-                Section {
-                    ForEach(browser.found) { found in
-                        Button { select(found) } label: {
-                            HStack {
-                                Label(found.name, systemImage: "desktopcomputer")
-                                Spacer()
-                                if connecting == found.name {
-                                    ProgressView()
-                                } else if found.name == connection.serverName {
-                                    Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
-                                }
-                            }
-                        }
-                        .foregroundStyle(.primary)
-                    }
-                    if browser.found.isEmpty {
-                        HStack(spacing: 10) {
-                            ProgressView()
-                            Text(browser.problem ?? "Ищу Mac с YTVD в этой сети…").foregroundStyle(.secondary)
-                        }
-                    }
-                } header: {
-                    Text("Найдено в сети")
-                } footer: {
-                    Text("На Mac включите YTVD → Настройки → «Сервер для iPhone». Mac и iPhone должны быть в одной сети.")
-                }
-
-                Section {
-                    TextField("192.168.1.10:8765", text: $manualAddress)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .onSubmit(connectManually)
-                    Button("Подключить", action: connectManually)
-                        .disabled(manualAddress.trimmingCharacters(in: .whitespaces).isEmpty)
-                } header: {
-                    Text("Адрес вручную")
-                } footer: {
-                    Text("Если Mac не находится сам: адрес показан на Mac в настройках сервера.")
-                }
-
-                Section("Скачивание") {
-                    Picker("Качество по умолчанию", selection: $defaultQuality) {
-                        ForEach(DefaultQuality.allCases) { Text($0.title).tag($0.rawValue) }
-                    }
-                    Toggle("Только по Wi-Fi", isOn: $wifiOnly)
-                    Toggle("Сохранять в «Фото»", isOn: $autoSaveToPhotos)
-                    Toggle("Оставлять копию на Mac", isOn: $keepOnMac)
-                }
-
-                Section {
-                    NavigationLink("Сведения для отладки") { DebugInfoView() }
-                    if connection.serverURL != nil {
-                        Button("Забыть этот Mac", role: .destructive) { confirmForget = true }
-                    }
+                    .padding(.bottom, 24)
                 }
             }
-            .navigationTitle("Настройки")
+            .background(Theme.bg)
+            .toolbar(.hidden, for: .navigationBar)
+            .ytvdTabBar()
+            .navigationDestination(for: String.self) { _ in DebugInfoView().ytvdTabBar() }
             .onAppear { browser.start() }
             .onDisappear { browser.stop() }
             .sheet(isPresented: $pairing) { PairingView() }
@@ -107,6 +51,186 @@ struct SettingsView: View {
             }
         }
     }
+
+    // MARK: - разделы
+
+    private var macSection: some View {
+        VStack(spacing: 0) {
+            GroupHeader(title: "Mac")
+            ServerStatusRow()
+            if connection.serverURL != nil {
+                HStack(spacing: 8) {
+                    Button(connection.isPaired ? "Сопрячь заново" : "Ввести код сопряжения") { pairing = true }
+                        .buttonStyle(MiniButtonStyle())
+                    Button("Проверить соединение") { Task { await connection.check() } }
+                        .buttonStyle(MiniButtonStyle())
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, Theme.Metrics.gutter)
+                .padding(.vertical, 10)
+                .background(Theme.bg)
+                Hairline()
+            }
+            if connection.isPaired {
+                note(connection.reachableAway
+                     ? "Вне дома приложение само переключится на Tailscale — держите его на iPhone включённым (в приложении Tailscale: VPN On Demand)."
+                     : "Чтобы качать вне дома, поставьте Tailscale на Mac и на iPhone под одной учётной записью.")
+            }
+        }
+    }
+
+    private var foundSection: some View {
+        VStack(spacing: 0) {
+            GroupHeader(title: "Найдено в сети", trailing: browser.found.isEmpty ? nil : "\(browser.found.count)")
+            ForEach(browser.found) { found in
+                Button { select(found) } label: {
+                    VStack(spacing: 0) {
+                        HStack(spacing: 12) {
+                            IconView(.tv, size: 20, lineWidth: 1.8).foregroundStyle(Theme.dim)
+                            Text(found.name).font(.body).foregroundStyle(Theme.text)
+                            Spacer()
+                            if connecting == found.name {
+                                ProgressView().tint(Theme.dim)
+                            } else if found.name == connection.serverName {
+                                IconView(.check, size: 16, lineWidth: 2.4).foregroundStyle(Theme.blue)
+                                    .accessibilityLabel("Выбран")
+                            }
+                        }
+                        .padding(.horizontal, Theme.Metrics.gutter)
+                        .frame(minHeight: 50)
+                        Hairline()
+                    }
+                    .background(Theme.bg)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            if browser.found.isEmpty {
+                VStack(spacing: 0) {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(Theme.dim)
+                        Text(browser.problem ?? "Ищу Mac с YTVD в этой сети…")
+                            .font(.subheadline).foregroundStyle(Theme.dim)
+                        Spacer()
+                    }
+                    .padding(.horizontal, Theme.Metrics.gutter)
+                    .frame(minHeight: 50)
+                    Hairline()
+                }
+                .background(Theme.bg)
+            }
+            note("На Mac включите YTVD → Настройки → «Сервер для iPhone». Mac и iPhone должны быть в одной сети.")
+        }
+    }
+
+    private var manualSection: some View {
+        VStack(spacing: 0) {
+            GroupHeader(title: "Адрес вручную")
+            HStack(spacing: 8) {
+                TextField("", text: $manualAddress,
+                          prompt: Text("192.168.1.10:8765").foregroundStyle(Theme.muted))
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onSubmit(connectManually)
+                    .panelField()
+                Button("Подключить", action: connectManually)
+                    .buttonStyle(MiniButtonStyle())
+                    .disabled(manualAddress.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            .padding(Theme.Metrics.gutter)
+            .background(Theme.bg)
+            Hairline()
+            note("Если Mac не находится сам: адрес показан на Mac в настройках сервера. Вне дома — имя вида mac.tail….ts.net.")
+        }
+    }
+
+    private var downloadSection: some View {
+        VStack(spacing: 0) {
+            GroupHeader(title: "Скачивание")
+            SettingRow(title: "Качество по умолчанию", note: "Выбирается заранее, можно поменять перед загрузкой") {
+                Menu {
+                    Picker("Качество по умолчанию", selection: $defaultQuality) {
+                        ForEach(DefaultQuality.allCases) { Text($0.title).tag($0.rawValue) }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(DefaultQuality(rawValue: defaultQuality)?.title ?? "")
+                            .font(.system(.subheadline, weight: .semibold))
+                        IconView(.chevronDown, size: 12, lineWidth: 2)
+                    }
+                    .foregroundStyle(Theme.text)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 34)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.bg2))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.hair, lineWidth: 1))
+                }
+                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+            }
+            SettingRow(title: "Только по Wi-Fi", note: "По сотовой сети файлы не забираются") {
+                BlockToggle(isOn: $wifiOnly, label: "Только по Wi-Fi")
+            }
+            SettingRow(title: "Сохранять в «Фото»", note: "Каждое скачанное видео — ещё и в медиатеку") {
+                BlockToggle(isOn: $autoSaveToPhotos, label: "Сохранять в «Фото»")
+            }
+            SettingRow(title: "Оставлять копию на Mac", note: "Иначе Mac удаляет файл, как только iPhone его забрал") {
+                BlockToggle(isOn: $keepOnMac, label: "Оставлять копию на Mac")
+            }
+        }
+    }
+
+    private var otherSection: some View {
+        VStack(spacing: 0) {
+            GroupHeader(title: "Прочее")
+            NavigationLink(value: "debug") {
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Сведения для отладки").font(.body).foregroundStyle(Theme.text)
+                        Spacer()
+                        IconView(.chevronRight, size: 13, lineWidth: 2).foregroundStyle(Theme.muted)
+                    }
+                    .padding(.horizontal, Theme.Metrics.gutter)
+                    .frame(minHeight: 50)
+                    Hairline()
+                }
+                .background(Theme.bg)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if connection.serverURL != nil {
+                Button { confirmForget = true } label: {
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("Забыть этот Mac").font(.body).foregroundStyle(Theme.red)
+                            Spacer()
+                        }
+                        .padding(.horizontal, Theme.Metrics.gutter)
+                        .frame(minHeight: 50)
+                        Hairline()
+                    }
+                    .background(Theme.bg)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func note(_ text: String) -> some View {
+        VStack(spacing: 0) {
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Theme.Metrics.gutter)
+                .padding(.vertical, 9)
+            Hairline()
+        }
+        .background(Theme.lane)
+    }
+
+    // MARK: - действия
 
     private func select(_ found: ServerBrowser.Found) {
         connecting = found.name
@@ -150,34 +274,36 @@ struct ServerStatusRow: View {
     @Environment(Connection.self) private var connection
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol).font(.title2).foregroundStyle(color)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(connection.serverName ?? connection.serverURL?.host() ?? "Mac не выбран")
-                    .font(.headline)
-                Text(detail).font(.subheadline).foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                IconView(.tv, size: 26, lineWidth: 1.7)
+                    .foregroundStyle(Theme.dim)
+                    .overlay(alignment: .bottomTrailing) {
+                        Swatch(color: color, size: 10).offset(x: 3, y: 3)
+                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(connection.serverName ?? connection.serverURL?.host() ?? "Mac не выбран")
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(Theme.text)
+                    Text(detail).font(.footnote).foregroundStyle(Theme.dim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                if connection.status == .checking { ProgressView().tint(Theme.dim) }
             }
-            Spacer()
-            if connection.status == .checking { ProgressView() }
+            .padding(.horizontal, Theme.Metrics.gutter)
+            .padding(.vertical, 12)
+            Hairline()
         }
-        .padding(.vertical, 2)
-    }
-
-    private var symbol: String {
-        switch connection.status {
-        case .online: "checkmark.circle.fill"
-        case .checking: "circle.dotted"
-        case .notConfigured: "desktopcomputer"
-        case .unpaired: "lock.circle.fill"
-        case .offline: "exclamationmark.circle.fill"
-        }
+        .background(Theme.bg)
+        .accessibilityElement(children: .combine)
     }
 
     private var color: Color {
         switch connection.status {
-        case .online: .green
-        case .unpaired, .offline: .orange
-        default: .secondary
+        case .online: Theme.green
+        case .unpaired, .offline: Theme.orange
+        default: Theme.steel
         }
     }
 
@@ -209,30 +335,34 @@ struct PairingView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("000000", text: $code)
+            VStack(spacing: 0) {
+                GroupHeader(title: "Код с Mac")
+                VStack(spacing: 12) {
+                    TextField("", text: $code, prompt: Text("000 000").foregroundStyle(Theme.muted))
                         .keyboardType(.numberPad)
                         .textContentType(.oneTimeCode)
                         .font(.system(.largeTitle, design: .monospaced).weight(.semibold))
                         .multilineTextAlignment(.center)
                         .focused($focused)
+                        .panelField()
                         .onChange(of: code) { _, value in
                             let digits = String(value.filter(\.isNumber).prefix(6))
                             if digits != value { code = digits }
                             if digits.count == 6, !busy { submit() }
                         }
-                } header: {
-                    Text("Код с Mac")
-                } footer: {
                     Text("На Mac: YTVD → Настройки → «Сервер для iPhone» → «Показать код». Код действует пять минут.")
+                        .font(.footnote).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .padding(Theme.Metrics.gutter)
+                .background(Theme.bg)
+                Hairline()
                 if let error {
-                    Section {
-                        Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
-                    }
+                    WarningBanner(title: "Не получилось", detail: error)
                 }
+                Spacer()
             }
+            .background(Theme.bg)
             .navigationTitle(connection.serverName ?? "Сопряжение")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

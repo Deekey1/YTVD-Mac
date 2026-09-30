@@ -9,12 +9,16 @@ let package = Package(
     products: [
         // Контракт API — его же подключает iPhone-приложение, чтобы модели не разъезжались.
         .library(name: "YTVDAPI", targets: ["YTVDAPI"]),
+        // Иконки Obra — одни и те же на Mac и на iPhone.
+        .library(name: "YTVDIcons", targets: ["YTVDIcons"]),
     ],
     targets: [
         // Модели запросов и ответов, разбор ссылок. Только Foundation — собирается и под iOS.
         .target(name: "YTVDAPI", path: "Sources/YTVDAPI", swiftSettings: settings),
+        // Контуры иконок, разбор SVG и отрисовка в SwiftUI. Без AppKit и UIKit.
+        .target(name: "YTVDIcons", path: "Sources/YTVDIcons", swiftSettings: settings),
         // Вся логика и интерфейс Mac-приложения, плюс сервер для iPhone.
-        .target(name: "YTVDCore", dependencies: ["YTVDAPI"], path: "Sources/YTVDCore",
+        .target(name: "YTVDCore", dependencies: ["YTVDAPI", "YTVDIcons"], path: "Sources/YTVDCore",
                 swiftSettings: settings),
         // Исполняемый файл — только точка входа.
         .executableTarget(name: "YTVD", dependencies: ["YTVDCore"], path: "Sources/YTVD",

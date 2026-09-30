@@ -40,6 +40,19 @@ final class Connection {
 
     var isPaired: Bool { token != nil }
 
+    #if DEBUG
+    /// Демо-режим (-YTVDDemo): будто Mac на связи — для снимков экрана без сервера.
+    /// Проверки связи до конца запуска его не трогают.
+    @ObservationIgnored private var demoOnline = false
+
+    func showDemoOnline() {
+        demoOnline = true
+        serverName = "Mac Studio"
+        status = .online(ServerInfo(name: "Mac Studio", appVersion: "1.3.2", apiVersion: "1",
+                                    authorized: true, ready: true))
+    }
+    #endif
+
     var info: ServerInfo? {
         if case .online(let info) = status { return info }
         return nil
@@ -63,6 +76,9 @@ final class Connection {
     // MARK: - проверка
 
     func check() async {
+        #if DEBUG
+        if demoOnline { return }
+        #endif
         guard let serverURL else {
             status = .notConfigured
             return

@@ -46,6 +46,24 @@ final class DownloadModel {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && state != .resolving
     }
 
+    /// Ссылка последнего разбора: пока в поле она же, кнопка «Загрузить» не нужна.
+    private(set) var resolvedText: String?
+
+    /// Показывать ли «Загрузить»: в поле ссылка, которую ещё не разбирали (или разбор не удался).
+    var needsResolve: Bool {
+        guard canResolve else { return false }
+        if case .ready = state, let resolvedText { return !Self.sameLink(text, resolvedText) }
+        return true
+    }
+
+    #if DEBUG
+    /// Демо-режим (-YTVDDemo): показать разобранный ролик без сервера.
+    func showReadyForDemo(_ video: VideoInfo) {
+        state = .ready(video)
+        resolvedText = text
+    }
+    #endif
+
     // MARK: - разбор ссылки
 
     func resolve(connection: Connection) {
@@ -54,6 +72,7 @@ final class DownloadModel {
             return
         }
         text = url.absoluteString
+        resolvedText = text
         state = .resolving
         selectedFormatId = nil
         resolveTask?.cancel()
@@ -87,6 +106,7 @@ final class DownloadModel {
     func clear() {
         resolveTask?.cancel()
         text = ""
+        resolvedText = nil
         state = .idle
         selectedFormatId = nil
     }

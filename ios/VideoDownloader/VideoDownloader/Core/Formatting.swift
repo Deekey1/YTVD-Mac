@@ -41,6 +41,17 @@ enum Fmt {
         }
     }
 
+    /// «1 вариант», «3 варианта», «5 вариантов».
+    static func plural(_ count: Int, _ one: String, _ few: String, _ many: String) -> String {
+        let tens = count % 100, units = count % 10
+        let word: String
+        if (11...14).contains(tens) { word = many }
+        else if units == 1 { word = one }
+        else if (2...4).contains(units) { word = few }
+        else { word = many }
+        return "\(count) \(word)"
+    }
+
     static func percent(_ fraction: Double) -> String {
         "\(Int((min(1, max(0, fraction)) * 100).rounded(.down))) %"
     }

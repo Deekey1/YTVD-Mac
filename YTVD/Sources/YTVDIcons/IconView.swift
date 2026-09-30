@@ -35,17 +35,18 @@ public struct IconView: View {
 }
 
 /// Разобранные контуры живут в памяти всё время работы — их всего пара десятков.
-enum IconCache {
-    struct Entry {
-        let cgPath: CGPath
-        let dash: [CGFloat]
-        let filled: Bool
+/// Открыт наружу: по нему же рисуются картинки иконок на Mac и на iPhone.
+public enum IconCache {
+    public struct Entry {
+        public let cgPath: CGPath
+        public let dash: [CGFloat]
+        public let filled: Bool
     }
 
-    private static var storage: [String: [Entry]] = [:]
+    nonisolated(unsafe) private static var storage: [String: [Entry]] = [:]
     private static let lock = NSLock()
 
-    static func paths(for icon: Icon) -> [Entry] {
+    public static func paths(for icon: Icon) -> [Entry] {
         lock.lock()
         defer { lock.unlock() }
         if let cached = storage[icon.rawValue] { return cached }
@@ -54,36 +55,5 @@ enum IconCache {
         }
         storage[icon.rawValue] = entries
         return entries
-    }
-}
-
-/// Кнопка-иконка в шапке окна и панелях.
-public struct IconButton: View {
-    let icon: Icon
-    let active: Bool
-    let help: String
-    let action: () -> Void
-
-    @State private var hovering = false
-
-    public init(_ icon: Icon, active: Bool = false, help: String = "", action: @escaping () -> Void) {
-        self.icon = icon; self.active = active; self.help = help; self.action = action
-    }
-
-    public var body: some View {
-        Button(action: action) {
-            IconView(icon, size: 15)
-                .foregroundStyle(active ? Color.white : (hovering ? Theme.text : Theme.muted))
-                .frame(width: 24, height: 24)
-                .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(active ? Theme.blue : (hovering ? Theme.bg3 : .clear))
-                )
-                // Прозрачная подложка нажатий не принимает — задаём область явно.
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help(help)
     }
 }

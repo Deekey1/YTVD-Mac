@@ -51,7 +51,7 @@ final class LibraryTests: XCTestCase {
     }
 
     func testDuplicatesByVideoId() throws {
-        let container = try ModelContainer(for: VideoItem.self,
+        let container = try ModelContainer(for: VideoItem.self, Playlist.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let context = container.mainContext
         let older = item(label: "720p", date: Date(timeIntervalSinceNow: -3600))
@@ -68,7 +68,7 @@ final class LibraryTests: XCTestCase {
     }
 
     func testDeleteRemovesFileAndRecord() throws {
-        let container = try ModelContainer(for: VideoItem.self,
+        let container = try ModelContainer(for: VideoItem.self, Playlist.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let context = container.mainContext
         LibraryFiles.prepare()

@@ -137,6 +137,11 @@ final class TransferService {
     }
 
     /// Убрать строку из списка (после ошибки или отмены).
+    #if DEBUG
+    /// Демо-режим (-YTVDDemo): карточка загрузки без сервера.
+    func injectDemo(_ transfer: Transfer) { transfers.append(transfer) }
+    #endif
+
     func remove(_ id: UUID) {
         transfers.removeAll { $0.id == id }
         lastSample[id] = nil
@@ -351,7 +356,7 @@ final class TransferService {
             platform: transfer.video.platform)
         context.insert(item)
         if let old = transfer.replaces, let previous = Library.item(old, in: context) {
-            Library.delete(previous, in: context)
+            Library.replace(previous, with: item, in: context)
         }
         try? context.save()
         return item
